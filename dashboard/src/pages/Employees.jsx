@@ -30,6 +30,16 @@ export default function Employees() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
 
+  // Create employee modal
+  const [createModal, setCreateModal] = useState(false);
+  const [newEmp, setNewEmp] = useState({ name: '', surname: '', nickname: '', salary_type: 'monthly', salary_amount: '', bank_name: '', bank_account: '' });
+  const [creating, setCreating] = useState(false);
+  const [createMsg, setCreateMsg] = useState(null);
+
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState(null); // emp
+  const [deleting, setDeleting] = useState(false);
+
   // Attendance modal
   const [attModal, setAttModal] = useState(null); // { emp }
   const [attRecords, setAttRecords] = useState([]);
@@ -45,6 +55,45 @@ export default function Employees() {
   }
 
   useEffect(loadEmployees, []);
+
+  function openCreateModal() {
+    setNewEmp({ name: '', surname: '', nickname: '', salary_type: 'monthly', salary_amount: '', bank_name: '', bank_account: '' });
+    setCreateMsg(null);
+    setCreateModal(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteEmployee(deleteTarget.id);
+      setEmployees(prev => prev.filter(e => e.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      setMsg({ ok: true, text: `ลบพนักงาน "${deleteTarget.name}" แล้ว` });
+      setTimeout(() => setMsg(null), 4000);
+    } catch (e) {
+      setMsg({ ok: false, text: e.message });
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function createEmployee() {
+    if (!newEmp.name.trim()) { setCreateMsg({ ok: false, text: 'กรุณาระบุชื่อ' }); return; }
+    setCreating(true);
+    try {
+      const created = await api.createEmployee(newEmp);
+      setEmployees(prev => [...prev, created]);
+      setCreateModal(false);
+      setMsg({ ok: true, text: `เพิ่มพนักงาน "${created.name}" แล้ว รอให้พนักงานลงทะเบียนผ่าน LINE` });
+      setTimeout(() => setMsg(null), 5000);
+    } catch (e) {
+      setCreateMsg({ ok: false, text: e.message });
+    } finally {
+      setCreating(false);
+    }
+  }
 
   function startEditEmp(emp) {
     setEditEmp({
@@ -139,30 +188,42 @@ export default function Employees() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-slate-800">ข้อมูลพนักงาน</h2>
-        {msg && (
-          <span className={`text-sm font-medium ${msg.ok ? 'text-green-600' : 'text-red-600'}`}>{msg.text}</span>
-        )}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--brand-dark)' }}>ข้อมูลพนักงาน</h2>
+        <div className="flex items-center gap-3">
+          {msg && (
+            <span className={`text-sm font-medium ${msg.ok ? 'text-green-600' : 'text-red-600'}`}>{msg.text}</span>
+          )}
+          <button onClick={openCreateModal}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white"
+            style={{ background: 'var(--brand-sage)' }}>
+            + เพิ่มพนักงาน
+          </button>
+        </div>
       </div>
 
       {/* Employee table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+      <div className="bg-white rounded-xl overflow-x-auto" style={{ border: '1px solid var(--brand-beige)' }}>
         <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
+          <thead style={{ background: '#f7f3ed', color: 'var(--brand-sage)', fontSize: 11, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
             <tr>
-              {['ชื่อ-นามสกุล', 'ชื่อเล่น', 'ตำแหน่ง', 'ประเภทเงินเดือน', 'อัตรา', 'บัญชีธนาคาร', 'จัดการ'].map(h => (
+              {['ชื่อ-นามสกุล', 'ชื่อเล่น', 'LINE', 'ตำแหน่ง', 'ประเภทเงินเดือน', 'อัตรา', 'บัญชีธนาคาร', 'เอกสาร', 'จัดการ'].map(h => (
                 <th key={h} className="px-4 py-3 text-left font-medium whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {employees.map(emp => (
-              <tr key={emp.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium text-slate-800">
+              <tr key={emp.id} className="hover:bg-stone-50 transition-colors">
+                <td className="px-4 py-3 font-medium" style={{ color: 'var(--brand-dark)' }}>
                   {emp.name}{emp.surname ? ` ${emp.surname}` : ''}
                 </td>
-                <td className="px-4 py-3 text-slate-500">{emp.nickname || '—'}</td>
+                <td className="px-4 py-3" style={{ color: 'var(--brand-text)' }}>{emp.nickname || '—'}</td>
+                <td className="px-4 py-3">
+                  {emp.line_user_id
+                    ? <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: 'rgba(107,124,82,0.12)', color: 'var(--brand-sage)' }}>● เชื่อมแล้ว</span>
+                    : <span className="text-xs px-2 py-1 rounded-full font-medium bg-amber-50 text-amber-600">รอลงทะเบียน</span>}
+                </td>
                 <td className="px-4 py-3">
                   <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                     emp.role === 'admin' ? 'bg-purple-100 text-purple-700' :
@@ -187,6 +248,18 @@ export default function Employees() {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex gap-2">
+                    {emp.id_card_url
+                      ? <a href={emp.id_card_url} target="_blank" rel="noreferrer"
+                          className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-100 font-medium whitespace-nowrap">🪪 บัตร</a>
+                      : <span className="text-xs text-slate-300">บัตร —</span>}
+                    {emp.bank_book_url
+                      ? <a href={emp.bank_book_url} target="_blank" rel="noreferrer"
+                          className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-lg hover:bg-green-100 font-medium whitespace-nowrap">🏦 บัญชี</a>
+                      : <span className="text-xs text-slate-300">บัญชี —</span>}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-2">
                     <button onClick={() => startEditEmp(emp)}
                       className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-lg hover:bg-blue-100 font-medium">
                       แก้ไขข้อมูล
@@ -194,6 +267,10 @@ export default function Employees() {
                     <button onClick={() => openAttModal(emp)}
                       className="text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-100 font-medium">
                       เวลาทำงาน
+                    </button>
+                    <button onClick={() => setDeleteTarget(emp)}
+                      className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded-lg hover:bg-red-100 font-medium">
+                      ลบ
                     </button>
                   </div>
                 </td>
@@ -269,6 +346,113 @@ export default function Employees() {
               <button onClick={saveEmployee} disabled={saving}
                 className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold disabled:opacity-50">
                 {saving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="px-6 py-5 text-center space-y-3">
+              <div className="text-4xl">⚠️</div>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--brand-dark)' }}>ยืนยันการลบพนักงาน</h3>
+              <p className="text-sm" style={{ color: 'var(--brand-text)' }}>
+                ลบ <span className="font-semibold">{deleteTarget.name}{deleteTarget.surname ? ` ${deleteTarget.surname}` : ''}</span> ออกจากระบบ?
+              </p>
+              <p className="text-xs text-slate-400">ข้อมูลการลงเวลาและเงินเดือนจะยังคงอยู่ในฐานข้อมูล</p>
+            </div>
+            <div className="px-6 pb-5 flex gap-3">
+              <button onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2 text-sm rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">
+                ยกเลิก
+              </button>
+              <button onClick={confirmDelete} disabled={deleting}
+                className="flex-1 py-2 text-sm rounded-xl bg-red-600 text-white hover:bg-red-700 font-semibold disabled:opacity-50">
+                {deleting ? 'กำลังลบ...' : 'ลบพนักงาน'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create employee modal */}
+      {createModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="px-6 py-4 border-b flex justify-between items-center" style={{ borderColor: 'var(--brand-beige)' }}>
+              <h3 className="font-bold text-lg" style={{ color: 'var(--brand-dark)' }}>เพิ่มพนักงานใหม่</h3>
+              <button onClick={() => setCreateModal(false)} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-xs rounded-lg px-3 py-2" style={{ background: 'rgba(107,124,82,0.08)', color: 'var(--brand-sage)' }}>
+                พนักงานที่เพิ่มไว้จะสามารถลงทะเบียนผ่าน LINE ด้วยการพิมพ์ชื่อ-นามสกุล ระบบจะเชื่อมโดยอัตโนมัติ
+              </p>
+              {createMsg && (
+                <div className={`text-sm px-3 py-2 rounded-lg ${createMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                  {createMsg.text}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">ชื่อ *</label>
+                  <input value={newEmp.name} onChange={e => setNewEmp(v => ({ ...v, name: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ชื่อ" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">นามสกุล</label>
+                  <input value={newEmp.surname} onChange={e => setNewEmp(v => ({ ...v, surname: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="นามสกุล" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">ชื่อเล่น</label>
+                <input value={newEmp.nickname} onChange={e => setNewEmp(v => ({ ...v, nickname: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="ชื่อเล่น" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">ประเภทเงินเดือน</label>
+                  <select value={newEmp.salary_type} onChange={e => setNewEmp(v => ({ ...v, salary_type: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="monthly">รายเดือน</option>
+                    <option value="daily">รายวัน</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    อัตรา ({newEmp.salary_type === 'daily' ? '฿/วัน' : '฿/เดือน'})
+                  </label>
+                  <input type="number" value={newEmp.salary_amount} min="0"
+                    onChange={e => setNewEmp(v => ({ ...v, salary_amount: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="0" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">ธนาคาร</label>
+                  <select value={newEmp.bank_name} onChange={e => setNewEmp(v => ({ ...v, bank_name: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                    <option value="">เลือกธนาคาร</option>
+                    {BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">เลขบัญชี</label>
+                  <input value={newEmp.bank_account} onChange={e => setNewEmp(v => ({ ...v, bank_account: e.target.value }))}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" placeholder="xxx-x-xxxxx-x" />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t flex justify-end gap-3" style={{ borderColor: 'var(--brand-beige)' }}>
+              <button onClick={() => setCreateModal(false)}
+                className="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200">ยกเลิก</button>
+              <button onClick={createEmployee} disabled={creating}
+                className="px-4 py-2 text-sm rounded-lg font-semibold text-white disabled:opacity-50"
+                style={{ background: 'var(--brand-sage)' }}>
+                {creating ? 'กำลังเพิ่ม...' : 'เพิ่มพนักงาน'}
               </button>
             </div>
           </div>

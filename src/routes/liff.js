@@ -6,6 +6,7 @@ const { isInStore } = require('../services/gpsService');
 const { notifyLate } = require('../services/notificationService');
 const { push, text } = require('../services/lineMessaging');
 const { LATE_NOTIFY_THRESHOLD } = require('../config/constants');
+const { getSetting } = require('../services/settingsService');
 
 const router = express.Router();
 
@@ -29,8 +30,9 @@ router.post('/checkin', async (req, res) => {
     const user = await getUserByLineId(userId);
     if (!user) return res.json({ error: 'กรุณาลงทะเบียนผ่าน Line bot ก่อน' });
 
-    const { valid, distanceM } = isInStore(parseFloat(lat), parseFloat(lng));
-    if (!valid) return res.json({ error: `ตำแหน่งอยู่นอกร้าน ${distanceM} เมตร (รัศมีที่อนุญาต 100 เมตร)` });
+    const radiusM = parseInt(await getSetting('store_radius_m') || '10000');
+    const { valid, distanceM } = isInStore(parseFloat(lat), parseFloat(lng), radiusM);
+    if (!valid) return res.json({ error: `ตำแหน่งอยู่นอกรัศมี ${distanceM} เมตร (รัศมีที่อนุญาต ${radiusM.toLocaleString()} เมตร)` });
 
     const photoUrl = saveBase64Photo(photo);
     const result = await checkIn(user.id, lat, lng, photoUrl);
@@ -69,8 +71,9 @@ router.post('/checkout', async (req, res) => {
     const user = await getUserByLineId(userId);
     if (!user) return res.json({ error: 'กรุณาลงทะเบียนผ่าน Line bot ก่อน' });
 
-    const { valid, distanceM } = isInStore(parseFloat(lat), parseFloat(lng));
-    if (!valid) return res.json({ error: `ตำแหน่งอยู่นอกร้าน ${distanceM} เมตร (รัศมีที่อนุญาต 100 เมตร)` });
+    const radiusM = parseInt(await getSetting('store_radius_m') || '10000');
+    const { valid, distanceM } = isInStore(parseFloat(lat), parseFloat(lng), radiusM);
+    if (!valid) return res.json({ error: `ตำแหน่งอยู่นอกรัศมี ${distanceM} เมตร (รัศมีที่อนุญาต ${radiusM.toLocaleString()} เมตร)` });
 
     const photoUrl = saveBase64Photo(photo);
     const result = await checkOut(user.id, lat, lng, photoUrl);

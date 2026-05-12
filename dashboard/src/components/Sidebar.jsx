@@ -8,6 +8,7 @@ const links = [
   { to: '/leave',      label: 'การลางาน',             icon: '◻' },
   { to: '/payroll',    label: 'สรุปเงินเดือน',        icon: '◈' },
   { to: '/employees',  label: 'พนักงาน / เงินเดือน',  icon: '◉' },
+  { to: '/settings',   label: 'ตั้งค่าระบบ',           icon: '⚙' },
 ];
 
 export default function Sidebar({ onLogout }) {
@@ -18,8 +19,10 @@ export default function Sidebar({ onLogout }) {
       {/* Logo */}
       <div className="flex flex-col items-center px-6 pt-7 pb-5"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <img src="/dashboard/logo.png" alt="Olivia Nails Spa"
-          style={{ width: 120, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.92 }} />
+        <div style={{ background: 'var(--brand-cream)', borderRadius: 14, padding: '10px 14px' }}>
+          <img src="/dashboard/logo.jpg" alt="Olivia Nails Spa"
+            style={{ width: 110, objectFit: 'contain' }} />
+        </div>
         <p className="mt-3 text-xs" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, letterSpacing: '0.15em' }}>
           Admin Dashboard
         </p>

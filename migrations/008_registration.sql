@@ -1,0 +1,4 @@
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS id_card_url  TEXT,
+  ADD COLUMN IF NOT EXISTS bank_book_url TEXT,
+  ADD COLUMN IF NOT EXISTS start_date   DATE;

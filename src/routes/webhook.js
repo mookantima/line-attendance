@@ -4,13 +4,15 @@ const { getSession, clearSession } = require('../sessions');
 const { getUserByLineId } = require('../services/attendanceService');
 const { reply, text, mainMenuFlex } = require('../services/lineMessaging');
 
-const { handleFollow, handleRegister, handleMenu, handleMyStats } = require('../handlers/menuHandler');
+const { handleFollow, handleRegister, handleRegisterStartDate, handleRegisterIdCard, handleRegisterBankBook, handleMenu, handleMyStats } = require('../handlers/menuHandler');
 const { startCheckIn } = require('../handlers/checkInHandler');
 const { startCheckOut } = require('../handlers/checkOutHandler');
 const {
-  startLeave, handleLeaveTypeSelected, handleLeaveStartDate,
-  handleLeaveEndDate, handleLeaveReason, handleApproveLeave,
-  handleRejectLeave, showPendingLeaves,
+  startLeave, handleLeaveTypeSelected,
+  handleLeaveStartDate, handleLeaveDays,
+  handleLeaveReason, handleLeaveDoc, handleLeaveReply,
+  handleApproveLeave, handleRejectLeave,
+  handleAskMoreInfo, showPendingLeaves,
 } = require('../handlers/leaveHandler');
 const { handleAdminToday, startAddStaff, handleAddStaff } = require('../handlers/adminHandler');
 
@@ -64,25 +66,50 @@ async function handlePostback(event, session) {
   if (data === 'admin_addstaff') return startAddStaff(event);
 
   // Leave type selection
+  if (data === 'leave_type_sick')     return handleLeaveTypeSelected(event, 'sick');
   if (data === 'leave_type_personal') return handleLeaveTypeSelected(event, 'personal');
-  if (data === 'leave_type_annual') return handleLeaveTypeSelected(event, 'annual');
+  if (data === 'leave_type_annual')   return handleLeaveTypeSelected(event, 'annual');
 
-  // Leave approval
+  // Leave approval actions
+  if (data.startsWith('leave_approve_cond_')) {
+    const id = parseInt(data.replace('leave_approve_cond_', ''));
+    return handleApproveLeave(event, id, true);
+  }
   if (data.startsWith('leave_approve_')) {
     const id = parseInt(data.replace('leave_approve_', ''));
-    return handleApproveLeave(event, id);
+    return handleApproveLeave(event, id, false);
   }
   if (data.startsWith('leave_reject_')) {
     const id = parseInt(data.replace('leave_reject_', ''));
     return handleRejectLeave(event, id);
+  }
+  if (data.startsWith('leave_askmore_')) {
+    const id = parseInt(data.replace('leave_askmore_', ''));
+    return handleAskMoreInfo(event, id);
   }
 }
 
 async function handleMessage(event, session) {
   const { type: msgType, text: msgText } = event.message || {};
 
-  // Location / Image — no longer used for check-in/out (handled by LIFF)
-  if (msgType === 'location' || msgType === 'image') {
+  // Image — handle doc upload or leave reply
+  if (msgType === 'image') {
+    if (session.state === 'register_waiting_id_card') {
+      return handleRegisterIdCard(event, session.data, event.message.id);
+    }
+    if (session.state === 'register_waiting_bank_book') {
+      return handleRegisterBankBook(event, session.data, event.message.id, null);
+    }
+    if (session.state === 'leave_waiting_doc') {
+      return handleLeaveDoc(event, session.data, event.message.id);
+    }
+    if (session.state === 'leave_reply_waiting') {
+      return handleLeaveReply(event, session.data, null, event.message.id);
+    }
+    return reply(event.replyToken, text('กรุณากดปุ่มลงเวลาผ่านเมนูครับ'));
+  }
+
+  if (msgType === 'location') {
     return reply(event.replyToken, text('กรุณากดปุ่มลงเวลาผ่านเมนูครับ'));
   }
 
@@ -92,11 +119,15 @@ async function handleMessage(event, session) {
 
     // Registration flow
     if (session.state === 'register_waiting_name') return handleRegister(event, trimmed);
+    if (session.state === 'register_waiting_start_date') return handleRegisterStartDate(event, session.data, trimmed);
+    if (session.state === 'register_waiting_bank_book') return handleRegisterBankBook(event, session.data, null, trimmed);
 
     // Leave flow (text input steps)
-    if (session.state === 'leave_waiting_start') return handleLeaveStartDate(event, session.data, trimmed);
-    if (session.state === 'leave_waiting_end') return handleLeaveEndDate(event, session.data, trimmed);
+    if (session.state === 'leave_waiting_start')  return handleLeaveStartDate(event, session.data, trimmed);
+    if (session.state === 'leave_waiting_days')   return handleLeaveDays(event, session.data, trimmed);
     if (session.state === 'leave_waiting_reason') return handleLeaveReason(event, session.data, trimmed);
+    if (session.state === 'leave_waiting_doc')    return handleLeaveDoc(event, session.data, null);
+    if (session.state === 'leave_reply_waiting')  return handleLeaveReply(event, session.data, trimmed, null);
 
     // Admin add staff
     if (session.state === 'admin_add_staff') return handleAddStaff(event, trimmed);

@@ -197,17 +197,69 @@
     document.getElementById('gps-text').textContent = '❌ ' + msg;
   }
 
+  function addWatermark(dataUrl, callback) {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width  = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      // Thai date-time (UTC+7)
+      const now = new Date(Date.now() + 7 * 3600000);
+      const dd   = String(now.getUTCDate()).padStart(2, '0');
+      const mm   = String(now.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = now.getUTCFullYear();
+      const hh   = String(now.getUTCHours()).padStart(2, '0');
+      const min  = String(now.getUTCMinutes()).padStart(2, '0');
+      const ss   = String(now.getUTCSeconds()).padStart(2, '0');
+      const stamp = `${dd}/${mm}/${yyyy}  ${hh}:${min}:${ss}`;
+
+      const fontSize = Math.max(24, Math.round(canvas.width * 0.045));
+      ctx.font = `bold ${fontSize}px 'Segoe UI', Arial, sans-serif`;
+
+      const pad = Math.round(canvas.width * 0.03);
+      const textW = ctx.measureText(stamp).width;
+      const boxH  = fontSize + pad * 1.2;
+      const boxY  = canvas.height - boxH - pad;
+
+      // Semi-transparent dark background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.50)';
+      ctx.beginPath();
+      ctx.roundRect(pad, boxY, textW + pad * 2, boxH, 8);
+      ctx.fill();
+
+      // White text
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(stamp, pad * 2, boxY + fontSize + pad * 0.4);
+
+      // Olivia watermark (top-right)
+      const brandSize = Math.max(18, Math.round(canvas.width * 0.032));
+      ctx.font = `${brandSize}px 'Segoe UI', Arial, sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.70)';
+      const brand = 'Olivia Nails Spa';
+      const bW = ctx.measureText(brand).width;
+      ctx.fillText(brand, canvas.width - bW - pad, pad + brandSize);
+
+      callback(canvas.toDataURL('image/jpeg', 0.92));
+    };
+    img.src = dataUrl;
+  }
+
   function onPhotoSelected(e) {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      photoBase64 = ev.target.result;
-      const preview = document.getElementById('photo-preview');
-      preview.src = photoBase64;
-      preview.style.display = 'block';
-      document.getElementById('photo-btn').textContent = '🔄 ถ่ายใหม่';
-      checkReady();
+      addWatermark(ev.target.result, (stamped) => {
+        photoBase64 = stamped;
+        const preview = document.getElementById('photo-preview');
+        preview.src = photoBase64;
+        preview.style.display = 'block';
+        document.getElementById('photo-btn').textContent = '🔄 ถ่ายใหม่';
+        checkReady();
+      });
     };
     reader.readAsDataURL(file);
   }

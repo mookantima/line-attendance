@@ -35,6 +35,16 @@ async function post(path, body) {
   return res.json();
 }
 
+async function del(path) {
+  const res = await fetch(BASE + path, {
+    method: 'DELETE',
+    headers: { 'x-dashboard-password': password },
+  });
+  if (res.status === 401) throw new Error('UNAUTHORIZED');
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 async function uploadFile(path, formData) {
   const res = await fetch(BASE + path, {
     method: 'POST',
@@ -51,6 +61,12 @@ export const api = {
   today: () => get('/today'),
   attendance: (year, month) => get(`/attendance?year=${year}&month=${month}`),
   employees: () => get('/employees'),
+  createEmployee: (data) => post('/employees', data),
+  deleteEmployee: (id) => del(`/employees/${id}`),
+
+  // Settings
+  settings: () => get('/settings'),
+  saveSettings: (data) => put('/settings', data),
   leaves: (year, month) => get(`/leaves?year=${year}&month=${month}`),
   leaveBalance: (year) => get(`/leave-balance?year=${year}`),
   payroll: (year, month) => get(`/payroll?year=${year}&month=${month}`),

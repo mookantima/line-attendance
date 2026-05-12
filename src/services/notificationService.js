@@ -1,4 +1,4 @@
-const { push, text } = require('./lineMessaging');
+const { push, text, leaveApprovalFlex } = require('./lineMessaging');
 const { query } = require('../config/database');
 
 async function getAdminsAndManagers() {
@@ -14,17 +14,29 @@ async function notifyLate(employeeName, lateMinutes) {
   await Promise.all(recipients.map(id => push(id, msg).catch(() => {})));
 }
 
-async function notifyLeaveRequest(adminLineIds, request, employeeName) {
-  const { leaveApprovalFlex } = require('./lineMessaging');
-  const msg = leaveApprovalFlex(request, employeeName);
+async function notifyLeaveRequest(adminLineIds, request, employeeName, userRole, stats, overlap) {
+  const msg = leaveApprovalFlex(request, employeeName, userRole, stats, overlap);
   await Promise.all(adminLineIds.map(id => push(id, msg).catch(() => {})));
 }
 
-async function notifyLeaveResult(employeeLineId, approved, leaveType, startDate, endDate) {
-  const typeStr = leaveType === 'personal' ? 'ลากิจ' : 'ลาพักร้อน';
+async function notifyLeaveResult(employeeLineId, approved, leaveType, startDate, endDate, conditional = false) {
+  const typeMap = { sick: 'ลาป่วย', personal: 'ลากิจ', annual: 'ลาพักร้อน' };
+  const typeStr = typeMap[leaveType] || leaveType;
   const emoji = approved ? '✅' : '❌';
-  const status = approved ? 'อนุมัติแล้ว' : 'ถูกปฏิเสธ';
-  await push(employeeLineId, text(`${emoji} ใบ${typeStr} ${startDate} - ${endDate} ของคุณ${status}`));
+  let status = approved ? 'อนุมัติแล้ว' : 'ถูกปฏิเสธ';
+  if (conditional) status = 'อนุมัติ (มีเงื่อนไข)';
+
+  function fmt(d) {
+    if (!d) return '-';
+    const date = new Date(d);
+    const dd = String(date.getUTCDate()).padStart(2, '0');
+    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${dd}-${mm}-${date.getUTCFullYear()}`;
+  }
+
+  await push(employeeLineId, text(
+    `${emoji} ใบ${typeStr} ${fmt(startDate)}${startDate !== endDate ? ` ถึง ${fmt(endDate)}` : ''} ของคุณ${status}`
+  ));
 }
 
 module.exports = { notifyLate, notifyLeaveRequest, notifyLeaveResult, getAdminsAndManagers };

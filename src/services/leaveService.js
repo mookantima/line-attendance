@@ -11,14 +11,30 @@ async function getLeaveBalance(userId, year) {
 
   // Ensure row exists
   await query(
-    `INSERT INTO leave_balance (user_id, year, personal_total, annual_total)
-     VALUES ($1, $2, $3, 0)
+    `INSERT INTO leave_balance (user_id, year, personal_total, annual_total, sick_total, sick_used)
+     VALUES ($1, $2, $3, 0, 30, 0)
      ON CONFLICT (user_id, year) DO NOTHING`,
     [userId, y, PERSONAL_LEAVE_DAYS]
   );
 
   const res = await query('SELECT * FROM leave_balance WHERE user_id = $1 AND year = $2', [userId, y]);
   return res.rows[0];
+}
+
+async function getLeaveStats(userId, year) {
+  const y = year || thaiNow().getUTCFullYear();
+  const res = await query(
+    `SELECT leave_type, COUNT(*) as times, SUM(days) as days
+     FROM leave_requests
+     WHERE user_id = $1 AND EXTRACT(YEAR FROM start_date) = $2 AND status != 'rejected'
+     GROUP BY leave_type`,
+    [userId, y]
+  );
+  const stats = { sick: { times: 0, days: 0 }, personal: { times: 0, days: 0 }, annual: { times: 0, days: 0 } };
+  for (const r of res.rows) {
+    stats[r.leave_type] = { times: parseInt(r.times), days: parseFloat(r.days) };
+  }
+  return stats;
 }
 
 async function ensureAnnualLeave(userId, startDate) {
@@ -52,15 +68,16 @@ async function checkOverlap(startDate, endDate) {
   return res.rows; // returns employees already on leave during those dates
 }
 
-async function requestLeave(userId, leaveType, startDate, endDate, reason) {
-  const now = thaiNow();
+async function requestLeave(userId, leaveType, startDate, endDate, days, reason, halfDayPeriod, docUrl) {
   const today = thaiDateStr();
 
-  // Advance notice check
-  const notice = leaveType === 'personal' ? PERSONAL_LEAVE_NOTICE : ANNUAL_LEAVE_NOTICE;
-  const noticeDays = (new Date(startDate) - new Date(today)) / (1000 * 60 * 60 * 24);
-  if (noticeDays < notice) {
-    return { error: 'insufficient_notice', required: notice, given: Math.floor(noticeDays) };
+  // Advance notice check — sick leave is exempt
+  if (leaveType !== 'sick') {
+    const notice = leaveType === 'personal' ? PERSONAL_LEAVE_NOTICE : ANNUAL_LEAVE_NOTICE;
+    const noticeDays = (new Date(startDate) - new Date(today)) / (1000 * 60 * 60 * 24);
+    if (noticeDays < notice) {
+      return { error: 'insufficient_notice', required: notice, given: Math.floor(noticeDays) };
+    }
   }
 
   // Annual leave tenure check
@@ -72,7 +89,6 @@ async function requestLeave(userId, leaveType, startDate, endDate, reason) {
   // Balance check
   const year = new Date(startDate).getFullYear();
   const balance = await getLeaveBalance(userId, year);
-  const days = countWorkDays(startDate, endDate);
 
   if (leaveType === 'personal' && balance.personal_used + days > balance.personal_total) {
     return { error: 'insufficient_balance', available: balance.personal_total - balance.personal_used };
@@ -104,12 +120,15 @@ async function requestLeave(userId, leaveType, startDate, endDate, reason) {
   }
 
   const res = await query(
-    `INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, days, reason)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [userId, leaveType, startDate, endDate, days, reason]
+    `INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, days, reason, half_day_period, doc_url)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [userId, leaveType, startDate, endDate, days, reason, halfDayPeriod || null, docUrl || null]
   );
 
-  return { request: res.rows[0], overlap, dayOffWarning };
+  // Get stats for admin notification
+  const stats = await getLeaveStats(userId, year);
+
+  return { request: res.rows[0], overlap, dayOffWarning, balance, stats };
 }
 
 async function approveLeave(requestId, adminId) {
@@ -125,7 +144,7 @@ async function approveLeave(requestId, adminId) {
   // Deduct from balance
   const { user_id, leave_type, days, start_date } = req.rows[0];
   const year = new Date(start_date).getFullYear();
-  const col = leave_type === 'personal' ? 'personal_used' : 'annual_used';
+  const col = leave_type === 'sick' ? 'sick_used' : leave_type === 'personal' ? 'personal_used' : 'annual_used';
   await query(`UPDATE leave_balance SET ${col} = ${col} + $1 WHERE user_id = $2 AND year = $3`, [days, user_id, year]);
 
   return { request: req.rows[0] };
@@ -177,6 +196,6 @@ async function getAllBalances(year) {
 }
 
 module.exports = {
-  getLeaveBalance, requestLeave, approveLeave, rejectLeave,
+  getLeaveBalance, getLeaveStats, requestLeave, approveLeave, rejectLeave,
   getPendingLeaves, getAllLeaves, getAllBalances, checkOverlap,
 };

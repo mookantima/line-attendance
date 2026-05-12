@@ -4,6 +4,7 @@ const { getTodayAttendance, getMonthlyAttendance } = require('../services/attend
 const { getAllLeaves, getAllBalances, getPendingLeaves } = require('../services/leaveService');
 const { calcMonthlyPayroll } = require('../services/payrollService');
 const { thaiNow } = require('../config/constants');
+const { getAllSettings, setSetting } = require('../services/settingsService');
 
 const router = express.Router();
 
@@ -41,11 +42,29 @@ router.get('/attendance', async (req, res) => {
   }
 });
 
+// POST /api/employees — pre-add employee (no LINE ID yet)
+router.post('/employees', async (req, res) => {
+  const { name, surname, nickname, salary_type, salary_amount, bank_account, bank_name } = req.body;
+  if (!name) return res.status(400).json({ error: 'กรุณาระบุชื่อพนักงาน' });
+  try {
+    const result = await query(
+      `INSERT INTO users (name, surname, nickname, salary_type, salary_amount, bank_account, bank_name, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'employee', true)
+       RETURNING id, name, surname, nickname, role, salary_type, salary_amount, bank_account, bank_name, is_active`,
+      [name, surname || null, nickname || null, salary_type || 'monthly',
+       salary_amount ? parseFloat(salary_amount) : null, bank_account || null, bank_name || null]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/employees
 router.get('/employees', async (req, res) => {
   try {
     const res2 = await query(
-      'SELECT id, name, surname, nickname, role, start_date, is_active, salary_type, salary_amount, bank_account, bank_name FROM users ORDER BY name'
+      'SELECT id, name, surname, nickname, role, start_date, is_active, salary_type, salary_amount, bank_account, bank_name, id_card_url, bank_book_url, CASE WHEN line_user_id IS NOT NULL THEN true ELSE false END AS line_user_id FROM users ORDER BY name'
     );
     res.json(res2.rows);
   } catch (e) {
@@ -73,6 +92,20 @@ router.put('/employees/:id', async (req, res) => {
     );
     if (!result.rows[0]) return res.status(404).json({ error: 'ไม่พบพนักงาน' });
     res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// DELETE /api/employees/:id — deactivate employee (soft delete)
+router.delete('/employees/:id', async (req, res) => {
+  try {
+    const result = await query(
+      'UPDATE users SET is_active = false WHERE id = $1 RETURNING id, name',
+      [req.params.id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ error: 'ไม่พบพนักงาน' });
+    res.json({ ok: true, id: result.rows[0].id, name: result.rows[0].name });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -256,6 +289,32 @@ router.get('/summary', async (req, res) => {
       todayLate: today.filter(r => r.late_minutes > 0).length,
       pendingLeaves: pending.length,
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/settings
+router.get('/settings', async (req, res) => {
+  try {
+    const settings = await getAllSettings();
+    res.json(settings);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/settings
+router.put('/settings', async (req, res) => {
+  try {
+    const allowed = ['store_radius_m'];
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        await setSetting(key, req.body[key]);
+      }
+    }
+    const settings = await getAllSettings();
+    res.json(settings);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

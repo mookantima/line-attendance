@@ -8,6 +8,7 @@ const { notifyLate } = require('../services/notificationService');
 const { push, text } = require('../services/lineMessaging');
 const { query } = require('../config/database');
 const { LATE_NOTIFY_THRESHOLD } = require('../config/constants');
+const { getSetting } = require('../services/settingsService');
 const { compareFaces, THRESHOLD } = require('../services/faceService');
 const { syncAttendance } = require('../services/googleSheets');
 
@@ -65,9 +66,10 @@ router.post('/submit', async (req, res) => {
     if (!user) return res.json({ error: 'ไม่พบข้อมูลพนักงาน' });
 
     // GPS check
-    const { valid, distanceM } = isInStore(parseFloat(lat), parseFloat(lng));
+    const radiusM = parseInt(await getSetting('store_radius_m') || '10000');
+    const { valid, distanceM } = isInStore(parseFloat(lat), parseFloat(lng), radiusM);
     if (!valid) {
-      return res.json({ error: `ตำแหน่งอยู่นอกร้าน ${distanceM} เมตร (รัศมีที่อนุญาต 100 เมตร)` });
+      return res.json({ error: `ตำแหน่งอยู่นอกรัศมี ${distanceM} เมตร (รัศมีที่อนุญาต ${radiusM.toLocaleString()} เมตร)` });
     }
 
     // ── Face Verification ─────────────────────────────────────────────────

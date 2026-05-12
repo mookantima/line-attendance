@@ -18,10 +18,10 @@ function toRad(deg) {
   return (deg * Math.PI) / 180;
 }
 
-function isInStore(lat, lng) {
+function isInStore(lat, lng, radiusM = STORE_RADIUS_M) {
   if (!STORE_LAT || !STORE_LNG) throw new Error('STORE_LAT/STORE_LNG not configured');
   const dist = distanceMeters(STORE_LAT, STORE_LNG, lat, lng);
-  return { valid: dist <= STORE_RADIUS_M, distanceM: Math.round(dist) };
+  return { valid: dist <= radiusM, distanceM: Math.round(dist) };
 }
 
 module.exports = { isInStore, distanceMeters };

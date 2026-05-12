@@ -7,15 +7,20 @@ const TTL_MS = 10 * 60 * 1000;
 function getSession(lineUserId) {
   const session = sessions.get(lineUserId);
   if (!session) return { state: 'idle', data: {} };
-  if (Date.now() - session.ts > TTL_MS) {
+  if (Date.now() - session.ts > (session.ttlMs || TTL_MS)) {
     sessions.delete(lineUserId);
     return { state: 'idle', data: {} };
   }
   return session;
 }
 
-function setSession(lineUserId, state, data = {}) {
-  sessions.set(lineUserId, { state, data, ts: Date.now() });
+function setSession(lineUserId, state, data = {}, ttlMs = TTL_MS) {
+  sessions.set(lineUserId, { state, data, ts: Date.now(), ttlMs });
+}
+
+function getSessionTTL(lineUserId) {
+  const session = sessions.get(lineUserId);
+  return session?.ttlMs || TTL_MS;
 }
 
 function clearSession(lineUserId) {
@@ -30,4 +35,4 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-module.exports = { getSession, setSession, clearSession };
+module.exports = { getSession, setSession, clearSession, getSessionTTL };

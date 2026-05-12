@@ -7,6 +7,7 @@ import Leave from './pages/Leave';
 import Payroll from './pages/Payroll';
 import Employees from './pages/Employees';
 import Calendar from './pages/Calendar';
+import Settings from './pages/Settings';
 import { setPassword } from './api';
 
 function Login({ onLogin }) {
@@ -37,8 +38,8 @@ function Login({ onLogin }) {
         style={{ background: 'var(--brand-cream)' }}>
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <img src="/dashboard/logo.png" alt="Olivia Nails Spa"
-            style={{ width: 140, objectFit: 'contain', marginBottom: 16 }} />
+          <img src="/dashboard/logo.jpg" alt="Olivia Nails Spa"
+            style={{ width: 160, objectFit: 'contain', marginBottom: 16 }} />
           <div className="w-12" style={{ height: 1, background: 'var(--brand-beige)' }}/>
           <p className="mt-3 text-xs" style={{ color: 'var(--brand-light)' }}>Admin Dashboard</p>
         </div>
@@ -85,6 +86,7 @@ export default function App() {
           <Route path="/leave" element={<Leave />} />
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/employees" element={<Employees />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>

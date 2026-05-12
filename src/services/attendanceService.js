@@ -14,6 +14,30 @@ async function createUser(lineUserId, name, role = 'employee') {
   return res.rows[0];
 }
 
+async function findUnlinkedByName(name) {
+  const res = await query(
+    'SELECT * FROM users WHERE line_user_id IS NULL AND is_active = true AND (name ILIKE $1 OR CONCAT(name, \' \', COALESCE(surname, \'\')) ILIKE $1) LIMIT 1',
+    [name.trim()]
+  );
+  return res.rows[0] || null;
+}
+
+async function linkLineId(userId, lineUserId) {
+  const res = await query(
+    'UPDATE users SET line_user_id = $1 WHERE id = $2 RETURNING *',
+    [lineUserId, userId]
+  );
+  return res.rows[0];
+}
+
+async function completeRegistration(userId, { startDate, idCardUrl, bankBookUrl }) {
+  const res = await query(
+    `UPDATE users SET start_date = $1, id_card_url = $2, bank_book_url = $3 WHERE id = $4 RETURNING *`,
+    [startDate || null, idCardUrl || null, bankBookUrl || null, userId]
+  );
+  return res.rows[0];
+}
+
 async function checkIn(userId, lat, lng, photoUrl) {
   const now = thaiNow();
   const today = thaiDateStr();
@@ -132,4 +156,4 @@ async function getMyStats(userId) {
   return res.rows[0];
 }
 
-module.exports = { getUserByLineId, createUser, checkIn, checkOut, getTodayAttendance, getMonthlyAttendance, getMyStats };
+module.exports = { getUserByLineId, createUser, findUnlinkedByName, linkLineId, completeRegistration, checkIn, checkOut, getTodayAttendance, getMonthlyAttendance, getMyStats };

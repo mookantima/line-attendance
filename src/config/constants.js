@@ -21,7 +21,7 @@ const ANNUAL_LEAVE_NOTICE = 7;       // days advance notice
 const ANNUAL_LEAVE_MIN_TENURE = 365; // days employment required
 
 // GPS
-const STORE_RADIUS_M = parseInt(process.env.STORE_RADIUS_M || '100');
+const STORE_RADIUS_M = parseInt(process.env.STORE_RADIUS_M || '10000');
 
 // Holidays 2026 (2569) — employees get double pay
 const HOLIDAYS_2026 = [
