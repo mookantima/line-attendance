@@ -268,6 +268,15 @@ export default function Employees() {
                       className="text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-100 font-medium">
                       เวลาทำงาน
                     </button>
+                    {emp.line_user_id && (
+                      <button onClick={async () => {
+                        if (!confirm(`ยกเลิกการเชื่อม LINE ของ ${emp.name}?`)) return;
+                        await api.unlinkLine(emp.id);
+                        setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, line_user_id: false } : e));
+                      }} className="text-xs bg-slate-50 text-slate-500 px-3 py-1 rounded-lg hover:bg-slate-100 font-medium whitespace-nowrap">
+                        ยกเลิก LINE
+                      </button>
+                    )}
                     <button onClick={() => setDeleteTarget(emp)}
                       className="text-xs bg-red-50 text-red-600 px-3 py-1 rounded-lg hover:bg-red-100 font-medium">
                       ลบ

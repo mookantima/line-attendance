@@ -63,6 +63,7 @@ export const api = {
   employees: () => get('/employees'),
   createEmployee: (data) => post('/employees', data),
   deleteEmployee: (id) => del(`/employees/${id}`),
+  unlinkLine: (id) => del(`/employees/${id}/line`),
 
   // Settings
   settings: () => get('/settings'),

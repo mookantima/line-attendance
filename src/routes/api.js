@@ -97,6 +97,16 @@ router.put('/employees/:id', async (req, res) => {
   }
 });
 
+// DELETE /api/employees/:id/line — unlink LINE account
+router.delete('/employees/:id/line', async (req, res) => {
+  try {
+    await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // DELETE /api/employees/:id — deactivate employee (soft delete)
 router.delete('/employees/:id', async (req, res) => {
   try {
