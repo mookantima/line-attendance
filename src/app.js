@@ -38,8 +38,13 @@ app.use('/api/salary', salaryRouter);
 const dashboardDist = path.join(__dirname, '../dashboard/dist');
 if (fs.existsSync(dashboardDist)) {
   app.use('/dashboard', express.static(dashboardDist));
-  app.get('/dashboard/*', (req, res) => res.sendFile(path.join(dashboardDist, 'index.html')));
+  app.get(['/dashboard', '/dashboard/*'], (req, res) =>
+    res.sendFile(path.join(dashboardDist, 'index.html'))
+  );
 }
+
+// Root → redirect to dashboard
+app.get('/', (req, res) => res.redirect('/dashboard/'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
