@@ -137,7 +137,14 @@ async function handleMessage(event, session) {
       return handleMenu(event);
     }
 
-    // Default: show menu
+    // Default: if user not registered, treat text as name input directly
+    const { getUserByLineId } = require('../services/attendanceService');
+    const user = await getUserByLineId(event.source.userId);
+    if (!user) {
+      setSession(event.source.userId, 'register_waiting_name');
+      return handleRegister(event, trimmed);
+    }
+
     return handleMenu(event);
   }
 }
