@@ -4,6 +4,7 @@
   "description": "ระบบลงเวลาผ่าน Line OA",
   "main": "src/app.js",
   "scripts": {
+    "build": "cd dashboard && npm install && npm run build",
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "migrate": "psql $DATABASE_URL -f migrations/001_initial.sql"
