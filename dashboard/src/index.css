@@ -2,7 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --brand-dark:    #363f2e;
+  --brand-mid:     #4e5e3a;
+  --brand-sage:    #6b7c52;
+  --brand-light:   #8fa07c;
+  --brand-cream:   #f5f0e8;
+  --brand-beige:   #e8dfd0;
+  --brand-text:    #2c3320;
+}
+
 body {
   font-family: 'Segoe UI', -apple-system, sans-serif;
-  background-color: #f1f5f9;
+  background-color: var(--brand-cream);
+  color: var(--brand-text);
 }

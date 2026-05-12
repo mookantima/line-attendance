@@ -8,6 +8,9 @@ function thaiTime(utcStr) {
   return d.toISOString().substr(11, 5);
 }
 
+const card = { background: 'white', border: '1px solid var(--brand-beige)', borderRadius: 16 };
+const thHead = { background: '#f7f3ed', color: 'var(--brand-sage)', fontSize: 11, letterSpacing: '0.07em', textTransform: 'uppercase' };
+
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [today, setToday] = useState([]);
@@ -21,73 +24,101 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-slate-500 mt-10 text-center">กำลังโหลด...</div>;
+  if (loading) return (
+    <div className="flex items-center justify-center mt-20">
+      <div className="text-sm" style={{ color: 'var(--brand-light)' }}>กำลังโหลด...</div>
+    </div>
+  );
   if (error) return <div className="text-red-500 mt-10 text-center">❌ {error === 'UNAUTHORIZED' ? 'รหัสผ่านไม่ถูกต้อง' : error}</div>;
 
   const now = new Date(Date.now() + 7 * 3600000);
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800">ภาพรวมวันนี้</h2>
-        <p className="text-slate-500 text-sm">{todayStr}</p>
+      {/* Header */}
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold" style={{ color: 'var(--brand-dark)' }}>ภาพรวมวันนี้</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--brand-light)' }}>{todayStr}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium tracking-widest uppercase" style={{ color: 'var(--brand-sage)' }}>
+            Olivia Nails Spa
+          </p>
+        </div>
       </div>
 
+      {/* Divider */}
+      <div style={{ height: 1, background: 'var(--brand-beige)' }} />
+
+      {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="พนักงานทั้งหมด" value={summary?.totalEmployees} icon="👥" color="blue" />
-        <StatCard label="เข้างานวันนี้" value={summary?.todayCheckedIn} icon="✅" color="green" />
-        <StatCard label="มาสายวันนี้" value={summary?.todayLate} icon="⏰" color="amber" />
-        <StatCard label="ใบลารอการอนุมัติ" value={summary?.pendingLeaves} icon="📋" color="purple" />
+        <StatCard label="พนักงานทั้งหมด" value={summary?.totalEmployees} icon="◉" color="sage" />
+        <StatCard label="เข้างานวันนี้"   value={summary?.todayCheckedIn}  icon="✓" color="green" />
+        <StatCard label="มาสายวันนี้"     value={summary?.todayLate}        icon="◷" color="amber" />
+        <StatCard label="ใบลารออนุมัติ"   value={summary?.pendingLeaves}    icon="◻" color="red" />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-700">บันทึกเวลาวันนี้</h3>
+      {/* Today's table */}
+      <div style={card} className="overflow-hidden">
+        <div className="px-6 py-4 flex items-center justify-between"
+          style={{ borderBottom: '1px solid var(--brand-beige)' }}>
+          <h3 className="font-semibold text-sm tracking-wide" style={{ color: 'var(--brand-dark)' }}>
+            บันทึกเวลาวันนี้
+          </h3>
+          <span className="text-xs px-3 py-1 rounded-full"
+            style={{ background: 'rgba(107,124,82,0.1)', color: 'var(--brand-sage)' }}>
+            {today.filter(r => r.check_in_time).length} / {today.length} คน
+          </span>
         </div>
         {today.length === 0 ? (
-          <p className="text-center text-slate-400 py-12">ยังไม่มีข้อมูลการลงเวลา</p>
+          <div className="text-center py-16">
+            <p className="text-sm" style={{ color: 'var(--brand-light)' }}>ยังไม่มีข้อมูลการลงเวลา</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  {['ชื่อ', 'เวลาเข้า', 'เวลาออก', 'สาย (นาที)', 'OT (นาที)', 'สถานะ', 'รูปถ่าย'].map(h => (
+              <thead>
+                <tr style={thHead}>
+                  {['ชื่อ', 'เวลาเข้า', 'เวลาออก', 'สาย', 'OT', 'สถานะ', 'รูป'].map(h => (
                     <th key={h} className="px-4 py-3 text-left font-medium">{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {today.map(r => (
-                  <tr key={r.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-800">{r.name}</td>
-                    <td className="px-4 py-3">{thaiTime(r.check_in_time)}</td>
-                    <td className="px-4 py-3">{thaiTime(r.check_out_time)}</td>
+              <tbody>
+                {today.map((r, i) => (
+                  <tr key={r.id}
+                    style={{ borderTop: i > 0 ? '1px solid var(--brand-beige)' : 'none' }}
+                    className="hover:bg-stone-50 transition-colors">
+                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--brand-dark)' }}>{r.name}</td>
+                    <td className="px-4 py-3" style={{ color: 'var(--brand-text)' }}>{thaiTime(r.check_in_time)}</td>
+                    <td className="px-4 py-3" style={{ color: 'var(--brand-text)' }}>{thaiTime(r.check_out_time)}</td>
                     <td className="px-4 py-3">
                       {r.late_minutes > 0
-                        ? <span className="text-red-600 font-medium">{r.late_minutes}</span>
-                        : <span className="text-green-600">—</span>}
+                        ? <span className="font-semibold text-red-600">{r.late_minutes} น.</span>
+                        : <span style={{ color: 'var(--brand-light)' }}>—</span>}
                     </td>
                     <td className="px-4 py-3">
                       {r.ot_minutes > 0
-                        ? <span className="text-blue-600 font-medium">{r.ot_minutes}</span>
-                        : '—'}
+                        ? <span className="font-semibold" style={{ color: 'var(--brand-sage)' }}>{r.ot_minutes} น.</span>
+                        : <span style={{ color: 'var(--brand-light)' }}>—</span>}
                     </td>
                     <td className="px-4 py-3">
                       {r.check_out_time
-                        ? <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs">เสร็จ</span>
+                        ? <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'var(--brand-beige)', color: 'var(--brand-mid)' }}>เสร็จแล้ว</span>
                         : r.check_in_time
-                        ? <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">กำลังทำงาน</span>
-                        : <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-xs">ยังไม่มา</span>}
+                        ? <span className="text-xs px-2 py-1 rounded-full" style={{ background: 'rgba(107,124,82,0.15)', color: 'var(--brand-sage)' }}>● กำลังทำงาน</span>
+                        : <span className="text-xs px-2 py-1 rounded-full bg-red-50 text-red-500">ยังไม่มา</span>}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 space-x-2">
                       {r.check_in_photo && (
                         <a href={r.check_in_photo} target="_blank" rel="noreferrer"
-                          className="text-blue-500 underline text-xs">เข้า</a>
+                          className="text-xs underline" style={{ color: 'var(--brand-sage)' }}>เข้า</a>
                       )}
                       {r.check_out_photo && (
                         <a href={r.check_out_photo} target="_blank" rel="noreferrer"
-                          className="text-blue-500 underline text-xs ml-2">ออก</a>
+                          className="text-xs underline" style={{ color: 'var(--brand-sage)' }}>ออก</a>
                       )}
                     </td>
                   </tr>
