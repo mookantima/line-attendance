@@ -232,6 +232,17 @@ router.get('/payroll', async (req, res) => {
   }
 });
 
+// POST /api/notify/end-of-day — manually trigger end-of-day notification
+router.post('/notify/end-of-day', async (req, res) => {
+  try {
+    const { sendEndOfDayNotifications } = require('../services/endOfDayNotify');
+    await sendEndOfDayNotifications();
+    res.json({ ok: true, message: 'ส่งแจ้งเตือนแล้ว' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/summary — dashboard overview
 router.get('/summary', async (req, res) => {
   try {

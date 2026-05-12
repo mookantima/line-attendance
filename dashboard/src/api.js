@@ -47,6 +47,7 @@ async function uploadFile(path, formData) {
 
 export const api = {
   summary: () => get('/summary'),
+  notifyEndOfDay: () => post('/notify/end-of-day', {}),
   today: () => get('/today'),
   attendance: (year, month) => get(`/attendance?year=${year}&month=${month}`),
   employees: () => get('/employees'),

@@ -16,6 +16,22 @@ export default function Dashboard() {
   const [today, setToday] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notifying, setNotifying] = useState(false);
+  const [notifyMsg, setNotifyMsg] = useState(null);
+
+  async function triggerEndOfDay() {
+    setNotifying(true);
+    setNotifyMsg(null);
+    try {
+      const r = await api.notifyEndOfDay();
+      setNotifyMsg({ ok: true, text: r.message });
+    } catch (e) {
+      setNotifyMsg({ ok: false, text: e.message });
+    } finally {
+      setNotifying(false);
+      setTimeout(() => setNotifyMsg(null), 4000);
+    }
+  }
 
   useEffect(() => {
     Promise.all([api.summary(), api.today()])
@@ -37,15 +53,22 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-semibold" style={{ color: 'var(--brand-dark)' }}>ภาพรวมวันนี้</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--brand-light)' }}>{todayStr}</p>
         </div>
-        <div className="text-right">
-          <p className="text-xs font-medium tracking-widest uppercase" style={{ color: 'var(--brand-sage)' }}>
-            Olivia Nails Spa
-          </p>
+        <div className="flex items-center gap-3">
+          {notifyMsg && (
+            <span className={`text-xs px-3 py-1 rounded-full ${notifyMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+              {notifyMsg.ok ? '✅' : '❌'} {notifyMsg.text}
+            </span>
+          )}
+          <button onClick={triggerEndOfDay} disabled={notifying}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-white flex items-center gap-2 disabled:opacity-60"
+            style={{ background: '#D97706' }}>
+            {notifying ? 'กำลังส่ง...' : '⚠️ ส่งแจ้งเตือนเลิกงาน'}
+          </button>
         </div>
       </div>
 

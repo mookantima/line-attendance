@@ -53,6 +53,10 @@ app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISO
 const { startCronSync } = require('./services/cronSync');
 startCronSync();
 
+// Start end-of-day notification (20:00 Thai time)
+const { startEndOfDayCron } = require('./services/endOfDayNotify');
+startEndOfDayCron();
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
