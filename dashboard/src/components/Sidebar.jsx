@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
 const links = [
-  { to: '/',           label: 'ภาพรวม',           icon: '◈' },
-  { to: '/attendance', label: 'การลงเวลา',         icon: '◷' },
-  { to: '/leave',      label: 'การลางาน',          icon: '◻' },
-  { to: '/payroll',    label: 'สรุปเงินเดือน',     icon: '◈' },
-  { to: '/employees',  label: 'พนักงาน / เงินเดือน', icon: '◉' },
+  { to: '/',           label: 'ภาพรวม',              icon: '◈' },
+  { to: '/attendance', label: 'การลงเวลา',            icon: '◷' },
+  { to: '/calendar',   label: 'ปฏิทิน',               icon: '▦' },
+  { to: '/leave',      label: 'การลางาน',             icon: '◻' },
+  { to: '/payroll',    label: 'สรุปเงินเดือน',        icon: '◈' },
+  { to: '/employees',  label: 'พนักงาน / เงินเดือน',  icon: '◉' },
 ];
 
 export default function Sidebar({ onLogout }) {

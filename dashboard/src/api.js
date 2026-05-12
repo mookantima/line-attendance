@@ -58,6 +58,10 @@ export const api = {
   extras: (year, month) => get(`/salary/extras?year=${year}&month=${month}`),
   saveExtras: (data) => post('/salary/extras', data),
 
+  // Calendar
+  calendar: (year, month) => get(`/calendar?year=${year}&month=${month}`),
+  setWeeklyOff: (id, weekly_off) => put(`/employees/${id}/weekly-off`, { weekly_off }),
+
   // Employee profile
   updateEmployee: (id, data) => put(`/employees/${id}`, data),
   employeeAttendance: (id, year, month) => get(`/attendance/employee/${id}?year=${year}&month=${month}`),

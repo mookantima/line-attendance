@@ -78,6 +78,50 @@ router.put('/employees/:id', async (req, res) => {
   }
 });
 
+// GET /api/calendar?year=&month= — all employees attendance for calendar view
+router.get('/calendar', async (req, res) => {
+  const now = thaiNow();
+  const year = parseInt(req.query.year || now.getUTCFullYear());
+  const month = parseInt(req.query.month || now.getUTCMonth() + 1);
+  try {
+    const [empRes, attRes, leaveRes] = await Promise.all([
+      query('SELECT id, name, nickname, weekly_off FROM users WHERE is_active = true ORDER BY name'),
+      query(
+        `SELECT a.*, u.name as user_name FROM attendance a
+         JOIN users u ON u.id = a.user_id
+         WHERE EXTRACT(YEAR FROM a.work_date) = $1 AND EXTRACT(MONTH FROM a.work_date) = $2`,
+        [year, month]
+      ),
+      query(
+        `SELECT lr.*, u.name as user_name FROM leave_requests lr
+         JOIN users u ON u.id = lr.user_id
+         WHERE lr.status != 'rejected'
+           AND (EXTRACT(YEAR FROM lr.start_date) = $1 OR EXTRACT(YEAR FROM lr.end_date) = $1)
+           AND (EXTRACT(MONTH FROM lr.start_date) = $2 OR EXTRACT(MONTH FROM lr.end_date) = $2)`,
+        [year, month]
+      ),
+    ]);
+    res.json({ employees: empRes.rows, attendance: attRes.rows, leaves: leaveRes.rows });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// PUT /api/employees/:id/weekly-off — set weekly off days
+router.put('/employees/:id/weekly-off', async (req, res) => {
+  const { weekly_off } = req.body; // array of 0-6 (0=Sun)
+  if (!Array.isArray(weekly_off)) return res.status(400).json({ error: 'weekly_off ต้องเป็น array' });
+  try {
+    const result = await query(
+      'UPDATE users SET weekly_off = $1 WHERE id = $2 RETURNING id, name, weekly_off',
+      [weekly_off, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // GET /api/attendance/employee/:id?year=&month= — attendance records for one employee
 router.get('/attendance/employee/:id', async (req, res) => {
   const now = thaiNow();

@@ -81,6 +81,9 @@ async function handleLeaveReason(event, sessionData, reason) {
   if (result.overlap?.length > 0) {
     confirmMsg += `\n\n⚠️ หมายเหตุ: ${result.overlap.map(o => o.name).join(', ')} ลาช่วงเดียวกัน`;
   }
+  if (result.dayOffWarning?.length > 0) {
+    confirmMsg += `\n\n📅 แจ้งเตือน: วันที่ขอลาต่อไปนี้ตรงกับวันหยุดประจำสัปดาห์ของคุณ:\n${result.dayOffWarning.join('\n')}\n(ระบบบันทึกไว้แล้ว แต่ไม่นับใช้วันลา)`;
+  }
 
   await reply(replyToken, text(confirmMsg));
 

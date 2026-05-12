@@ -87,13 +87,29 @@ async function requestLeave(userId, leaveType, startDate, endDate, reason) {
   // Overlap warning (not blocking — admin decides)
   const overlap = await checkOverlap(startDate, endDate);
 
+  // Check if leave falls on employee's weekly day off
+  const userRes = await query('SELECT weekly_off FROM users WHERE id = $1', [userId]);
+  const weeklyOff = userRes.rows[0]?.weekly_off || [];
+  const dayOffWarning = [];
+  if (weeklyOff.length > 0) {
+    const d = new Date(startDate);
+    const end = new Date(endDate);
+    while (d <= end) {
+      if (weeklyOff.includes(d.getDay())) {
+        const dayNames = ['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'];
+        dayOffWarning.push(`${d.toISOString().slice(0,10)} (${dayNames[d.getDay()]})`);
+      }
+      d.setDate(d.getDate() + 1);
+    }
+  }
+
   const res = await query(
     `INSERT INTO leave_requests (user_id, leave_type, start_date, end_date, days, reason)
      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
     [userId, leaveType, startDate, endDate, days, reason]
   );
 
-  return { request: res.rows[0], overlap };
+  return { request: res.rows[0], overlap, dayOffWarning };
 }
 
 async function approveLeave(requestId, adminId) {

@@ -6,6 +6,7 @@ import Attendance from './pages/Attendance';
 import Leave from './pages/Leave';
 import Payroll from './pages/Payroll';
 import Employees from './pages/Employees';
+import Calendar from './pages/Calendar';
 import { setPassword } from './api';
 
 function Login({ onLogin }) {
@@ -80,6 +81,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/attendance" element={<Attendance />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/leave" element={<Leave />} />
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/employees" element={<Employees />} />
