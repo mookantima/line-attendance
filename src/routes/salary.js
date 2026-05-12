@@ -180,4 +180,51 @@ router.get('/commission/template', async (req, res) => {
   res.send(buf);
 });
 
+// GET /api/salary/extras?year=&month=
+router.get('/extras', async (req, res) => {
+  const now = thaiNow();
+  const year = parseInt(req.query.year || now.getFullYear());
+  const month = parseInt(req.query.month || now.getMonth() + 1);
+  try {
+    const result = await query(
+      `SELECT e.*, u.name FROM payroll_extras e
+       JOIN users u ON u.id = e.user_id
+       WHERE e.year = $1 AND e.month = $2`,
+      [year, month]
+    );
+    res.json(result.rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// POST /api/salary/extras — upsert extras for one employee
+router.post('/extras', async (req, res) => {
+  const { user_id, year, month, product_commission, holiday_pay, social_security, absent_deduction, note } = req.body;
+  if (!user_id || !year || !month) return res.status(400).json({ error: 'กรุณาระบุพนักงานและเดือน' });
+  try {
+    const result = await query(
+      `INSERT INTO payroll_extras (user_id, year, month, product_commission, holiday_pay, social_security, absent_deduction, note)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (user_id, year, month) DO UPDATE SET
+         product_commission = EXCLUDED.product_commission,
+         holiday_pay = EXCLUDED.holiday_pay,
+         social_security = EXCLUDED.social_security,
+         absent_deduction = EXCLUDED.absent_deduction,
+         note = EXCLUDED.note,
+         updated_at = NOW()
+       RETURNING *`,
+      [user_id, year, month,
+       parseFloat(product_commission) || 0,
+       parseFloat(holiday_pay) || 0,
+       parseFloat(social_security) || 0,
+       parseFloat(absent_deduction) || 0,
+       note || null]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

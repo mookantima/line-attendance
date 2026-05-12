@@ -54,6 +54,10 @@ export const api = {
   leaveBalance: (year) => get(`/leave-balance?year=${year}`),
   payroll: (year, month) => get(`/payroll?year=${year}&month=${month}`),
 
+  // Payroll extras
+  extras: (year, month) => get(`/salary/extras?year=${year}&month=${month}`),
+  saveExtras: (data) => post('/salary/extras', data),
+
   // Employee profile
   updateEmployee: (id, data) => put(`/employees/${id}`, data),
   employeeAttendance: (id, year, month) => get(`/attendance/employee/${id}?year=${year}&month=${month}`),

@@ -15,6 +15,9 @@ export default function Payroll() {
   const [manualEdit, setManualEdit] = useState(null);
   const [salaryEdit, setSalaryEdit] = useState(null);
   const [salaryMsg, setSalaryMsg] = useState(null);
+  const [extrasModal, setExtrasModal] = useState(null); // { record }
+  const [extrasSaving, setExtrasSaving] = useState(false);
+  const [extrasMsg, setExtrasMsg] = useState(null);
   const fileRef = useRef();
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
@@ -64,6 +67,42 @@ export default function Payroll() {
     }
   }
 
+  function openExtras(rec) {
+    setExtrasModal({
+      userId: rec.userId,
+      name: rec.name,
+      product_commission: rec.productCommission || 0,
+      holiday_pay: rec.manualHolidayPay || 0,
+      social_security: rec.socialSecurity || 0,
+      absent_deduction: rec.absentDeduction || 0,
+      note: '',
+    });
+    setExtrasMsg(null);
+  }
+
+  async function saveExtras() {
+    if (!extrasModal) return;
+    setExtrasSaving(true);
+    try {
+      await api.saveExtras({
+        user_id: extrasModal.userId,
+        year, month,
+        product_commission: extrasModal.product_commission,
+        holiday_pay: extrasModal.holiday_pay,
+        social_security: extrasModal.social_security,
+        absent_deduction: extrasModal.absent_deduction,
+        note: extrasModal.note,
+      });
+      setExtrasMsg({ ok: true, text: 'บันทึกสำเร็จ' });
+      load();
+      setTimeout(() => { setExtrasModal(null); setExtrasMsg(null); }, 800);
+    } catch (e) {
+      setExtrasMsg({ ok: false, text: e.message });
+    } finally {
+      setExtrasSaving(false);
+    }
+  }
+
   async function saveManual() {
     if (!manualEdit) return;
     await api.saveCommission({
@@ -81,10 +120,13 @@ export default function Payroll() {
     ot: acc.ot + r.otEarnings,
     late: acc.late + r.lateDeduction,
     comm: acc.comm + r.commission,
-    holiday: acc.holiday + r.holidayBonus,
+    productComm: acc.productComm + (r.productCommission || 0),
+    holiday: acc.holiday + (r.holidayBonus || 0) + (r.manualHolidayPay || 0),
     bonus: acc.bonus + r.perfectBonus,
+    social: acc.social + (r.socialSecurity || 0),
+    absent: acc.absent + (r.absentDeduction || 0),
     net: acc.net + r.netSalary,
-  }), { base: 0, ot: 0, late: 0, comm: 0, holiday: 0, bonus: 0, net: 0 });
+  }), { base: 0, ot: 0, late: 0, comm: 0, productComm: 0, holiday: 0, bonus: 0, social: 0, absent: 0, net: 0 });
 
   return (
     <div className="space-y-6">
@@ -106,21 +148,24 @@ export default function Payroll() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'ฐานเงินเดือนรวม', value: totals.base, color: 'slate' },
-          { label: 'Commission รวม', value: totals.comm, color: 'blue' },
-          { label: 'OT รวม', value: totals.ot, color: 'indigo' },
-          { label: 'หักสายรวม', value: -totals.late, color: 'red' },
+          { label: 'ฐานเงินเดือนรวม', value: totals.base, plus: true },
+          { label: 'Commission + คอมสินค้า', value: totals.comm + totals.productComm, plus: true },
+          { label: 'OT + วันหยุด', value: totals.ot + totals.holiday, plus: true },
+          { label: 'หัก (สาย+ประกัน+ขาด)', value: totals.late + totals.social + totals.absent, plus: false },
         ].map(c => (
-          <div key={c.label} className={`rounded-xl border p-4 bg-${c.color}-50 border-${c.color}-200`}>
-            <p className={`text-xs font-semibold text-${c.color}-600 mb-1`}>{c.label}</p>
-            <p className={`text-xl font-bold text-${c.color}-700`}>
-              {c.value >= 0 ? '' : '-'}฿{fmt(Math.abs(c.value))}
+          <div key={c.label} className="rounded-xl p-4"
+            style={{ background: c.plus ? 'rgba(107,124,82,0.08)' : 'rgba(180,60,60,0.07)',
+                     border: `1px solid ${c.plus ? 'rgba(107,124,82,0.2)' : 'rgba(180,60,60,0.2)'}` }}>
+            <p className="text-xs font-medium mb-1" style={{ color: c.plus ? 'var(--brand-sage)' : '#8b2020' }}>{c.label}</p>
+            <p className="text-xl font-bold" style={{ color: c.plus ? 'var(--brand-dark)' : '#8b2020' }}>
+              {c.plus ? '+' : '-'}฿{fmt(Math.abs(c.value))}
             </p>
           </div>
         ))}
       </div>
-      <div className="bg-green-600 text-white rounded-xl p-4 flex justify-between items-center">
-        <span className="font-semibold text-lg">💰 เงินเดือนสุทธิรวมทุกคน</span>
+      <div className="rounded-xl p-4 flex justify-between items-center text-white"
+        style={{ background: 'var(--brand-mid)' }}>
+        <span className="font-semibold text-lg">เงินเดือนสุทธิรวมทุกคน</span>
         <span className="text-2xl font-bold">฿{fmt(totals.net)}</span>
       </div>
 
@@ -272,59 +317,165 @@ export default function Payroll() {
       </div>
 
       {/* Full payroll table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-700">รายละเอียดเงินเดือนแต่ละคน</h3>
+      <div className="rounded-xl overflow-x-auto" style={{ background: 'white', border: '1px solid var(--brand-beige)' }}>
+        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--brand-beige)' }}>
+          <h3 className="font-semibold text-sm" style={{ color: 'var(--brand-dark)' }}>รายละเอียดเงินเดือนแต่ละคน</h3>
+          <p className="text-xs" style={{ color: 'var(--brand-light)' }}>กดปุ่ม "รายได้/หัก" เพื่อกรอกรายการเพิ่มเติม</p>
         </div>
-        {loading ? <p className="text-center text-slate-400 py-10">กำลังโหลด...</p> : (
+        {loading ? <p className="text-center py-10" style={{ color: 'var(--brand-light)' }}>กำลังโหลด...</p> : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead style={{ background: '#f7f3ed', color: 'var(--brand-sage)', fontSize: 11 }}>
               <tr>
-                {['ชื่อ','ประเภท','มา','ฐานเงินเดือน','OT','Commission','วันหยุด×2','เบี้ยขยัน','หักสาย','สุทธิ'].map(h => (
+                {['ชื่อ','ประเภท','มา','ฐานเงินเดือน','OT','Commission','คอมสินค้า','วันหยุด×2','เบี้ยขยัน','หักสาย','ประกันสังคม','ขาดงาน','สุทธิ',''].map(h => (
                   <th key={h} className="px-3 py-3 text-left font-medium whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
-              {records.map(r => (
-                <tr key={r.userId} className="hover:bg-slate-50">
-                  <td className="px-3 py-3 font-medium">{r.name}</td>
+            <tbody>
+              {records.map((r, i) => (
+                <tr key={r.userId} style={{ borderTop: i > 0 ? '1px solid var(--brand-beige)' : 'none' }}
+                  className="hover:bg-stone-50 transition-colors">
+                  <td className="px-3 py-3 font-semibold" style={{ color: 'var(--brand-dark)' }}>{r.name}</td>
                   <td className="px-3 py-3">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.salaryType === 'daily' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={r.salaryType === 'daily'
+                        ? { background: 'rgba(180,130,40,0.1)', color: '#7a5a10' }
+                        : { background: 'rgba(107,124,82,0.1)', color: 'var(--brand-sage)' }}>
                       {r.salaryType === 'daily' ? 'รายวัน' : 'รายเดือน'}
                     </span>
                   </td>
                   <td className="px-3 py-3">{r.presentDays} วัน</td>
                   <td className="px-3 py-3 font-medium">฿{fmt(r.baseSalary)}</td>
-                  <td className="px-3 py-3 text-indigo-600">+฿{fmt(r.otEarnings)}</td>
-                  <td className="px-3 py-3 text-blue-700 font-semibold">+฿{fmt(r.commission)}</td>
-                  <td className="px-3 py-3 text-purple-600">
-                    {r.holidayDaysWorked > 0 ? `+฿${fmt(r.holidayBonus)}` : '—'}
+                  <td className="px-3 py-3" style={{ color: 'var(--brand-sage)' }}>
+                    {r.otEarnings > 0 ? `+฿${fmt(r.otEarnings)}` : '—'}
                   </td>
-                  <td className="px-3 py-3 text-green-600">
-                    {r.perfectBonus > 0 ? `+฿${fmt(r.perfectBonus)} 🌟` : '—'}
+                  <td className="px-3 py-3 font-semibold" style={{ color: 'var(--brand-mid)' }}>
+                    {r.commission > 0 ? `+฿${fmt(r.commission)}` : '—'}
+                  </td>
+                  <td className="px-3 py-3" style={{ color: 'var(--brand-sage)' }}>
+                    {r.productCommission > 0 ? `+฿${fmt(r.productCommission)}` : '—'}
+                  </td>
+                  <td className="px-3 py-3" style={{ color: '#6b4fa0' }}>
+                    {(r.holidayBonus + (r.manualHolidayPay||0)) > 0 ? `+฿${fmt(r.holidayBonus + (r.manualHolidayPay||0))}` : '—'}
+                  </td>
+                  <td className="px-3 py-3" style={{ color: 'var(--brand-sage)' }}>
+                    {r.perfectBonus > 0 ? `+฿${fmt(r.perfectBonus)} ★` : '—'}
                   </td>
                   <td className="px-3 py-3 text-red-600">
                     {r.lateDeduction > 0 ? `-฿${fmt(r.lateDeduction)}` : '—'}
                   </td>
-                  <td className="px-3 py-3 font-bold text-lg text-slate-800">฿{fmt(r.netSalary)}</td>
+                  <td className="px-3 py-3 text-red-600">
+                    {r.socialSecurity > 0 ? `-฿${fmt(r.socialSecurity)}` : '—'}
+                  </td>
+                  <td className="px-3 py-3 text-red-600">
+                    {r.absentDeduction > 0 ? `-฿${fmt(r.absentDeduction)}` : '—'}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-base" style={{ color: 'var(--brand-dark)' }}>฿{fmt(r.netSalary)}</td>
+                  <td className="px-3 py-3">
+                    <button onClick={() => openExtras(r)}
+                      className="text-xs px-2 py-1 rounded-lg whitespace-nowrap"
+                      style={{ background: 'rgba(107,124,82,0.1)', color: 'var(--brand-sage)' }}>
+                      รายได้/หัก
+                    </button>
+                  </td>
                 </tr>
               ))}
-              {/* Total row */}
-              <tr className="bg-slate-800 text-white">
+              <tr style={{ background: 'var(--brand-dark)', color: 'white' }}>
                 <td className="px-3 py-3 font-bold" colSpan={3}>รวมทั้งหมด</td>
                 <td className="px-3 py-3 font-bold">฿{fmt(totals.base)}</td>
                 <td className="px-3 py-3 font-bold">+฿{fmt(totals.ot)}</td>
                 <td className="px-3 py-3 font-bold">+฿{fmt(totals.comm)}</td>
+                <td className="px-3 py-3 font-bold">+฿{fmt(totals.productComm)}</td>
                 <td className="px-3 py-3 font-bold">+฿{fmt(totals.holiday)}</td>
                 <td className="px-3 py-3 font-bold">+฿{fmt(totals.bonus)}</td>
                 <td className="px-3 py-3 font-bold">-฿{fmt(totals.late)}</td>
+                <td className="px-3 py-3 font-bold">-฿{fmt(totals.social)}</td>
+                <td className="px-3 py-3 font-bold">-฿{fmt(totals.absent)}</td>
                 <td className="px-3 py-3 font-bold text-lg">฿{fmt(totals.net)}</td>
+                <td />
               </tr>
             </tbody>
           </table>
         )}
       </div>
+
+      {/* Extras modal */}
+      {extrasModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="rounded-2xl shadow-xl w-full max-w-sm" style={{ background: 'var(--brand-cream)' }}>
+            <div className="px-6 py-4 flex justify-between items-center" style={{ borderBottom: '1px solid var(--brand-beige)' }}>
+              <div>
+                <h3 className="font-semibold" style={{ color: 'var(--brand-dark)' }}>รายได้ / รายหัก</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--brand-light)' }}>{extrasModal.name} — {months[month-1]} {year}</p>
+              </div>
+              <button onClick={() => setExtrasModal(null)} style={{ color: 'var(--brand-light)' }} className="text-xl">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              {extrasMsg && (
+                <div className={`p-3 rounded-xl text-sm ${extrasMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {extrasMsg.ok ? '✅' : '❌'} {extrasMsg.text}
+                </div>
+              )}
+
+              <p className="text-xs font-semibold tracking-wider uppercase" style={{ color: 'var(--brand-sage)' }}>รายได้เพิ่มเติม (+)</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--brand-text)' }}>คอมสินค้า (฿)</label>
+                  <input type="number" min="0" value={extrasModal.product_commission}
+                    onChange={e => setExtrasModal(v => ({ ...v, product_commission: e.target.value }))}
+                    className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                    style={{ border: '1.5px solid var(--brand-beige)', background: 'white' }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--brand-text)' }}>มาทำงานวันหยุด (฿)</label>
+                  <input type="number" min="0" value={extrasModal.holiday_pay}
+                    onChange={e => setExtrasModal(v => ({ ...v, holiday_pay: e.target.value }))}
+                    className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                    style={{ border: '1.5px solid var(--brand-beige)', background: 'white' }} />
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: 'var(--brand-beige)' }} />
+
+              <p className="text-xs font-semibold tracking-wider uppercase text-red-500">รายหัก (-)</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--brand-text)' }}>ประกันสังคม (฿)</label>
+                  <input type="number" min="0" value={extrasModal.social_security}
+                    onChange={e => setExtrasModal(v => ({ ...v, social_security: e.target.value }))}
+                    className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                    style={{ border: '1.5px solid var(--brand-beige)', background: 'white' }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--brand-text)' }}>ขาดงาน (฿)</label>
+                  <input type="number" min="0" value={extrasModal.absent_deduction}
+                    onChange={e => setExtrasModal(v => ({ ...v, absent_deduction: e.target.value }))}
+                    className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                    style={{ border: '1.5px solid var(--brand-beige)', background: 'white' }} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--brand-text)' }}>หมายเหตุ</label>
+                  <input type="text" value={extrasModal.note}
+                    onChange={e => setExtrasModal(v => ({ ...v, note: e.target.value }))}
+                    placeholder="ไม่บังคับ"
+                    className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                    style={{ border: '1.5px solid var(--brand-beige)', background: 'white' }} />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 flex gap-3" style={{ borderTop: '1px solid var(--brand-beige)' }}>
+              <button onClick={() => setExtrasModal(null)}
+                className="flex-1 py-2 rounded-xl text-sm"
+                style={{ background: 'var(--brand-beige)', color: 'var(--brand-text)' }}>ยกเลิก</button>
+              <button onClick={saveExtras} disabled={extrasSaving}
+                className="flex-1 py-2 rounded-xl text-sm font-semibold text-white"
+                style={{ background: 'var(--brand-sage)' }}>
+                {extrasSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

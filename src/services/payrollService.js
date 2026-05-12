@@ -56,6 +56,17 @@ async function calcMonthlyPayroll(year, month) {
     const salesAmount = parseFloat(commRes.rows[0]?.sales_amount || 0);
     const commission = parseFloat(commRes.rows[0]?.commission_amount || 0);
 
+    // Manual extras
+    const extRes = await query(
+      'SELECT * FROM payroll_extras WHERE user_id = $1 AND year = $2 AND month = $3',
+      [user.id, year, month]
+    );
+    const extras = extRes.rows[0] || {};
+    const productCommission = parseFloat(extras.product_commission || 0);
+    const manualHolidayPay = parseFloat(extras.holiday_pay || 0);
+    const socialSecurity = parseFloat(extras.social_security || 0);
+    const absentDeduction = parseFloat(extras.absent_deduction || 0);
+
     // Perfect attendance bonus
     const perfectBonus = (lateCount === 0 && absentCount === 0 && leaveCount === 0)
       ? PERFECT_ATTENDANCE_BONUS : 0;
@@ -63,8 +74,9 @@ async function calcMonthlyPayroll(year, month) {
     const lateDeduction = totalLateMin * LATE_DEDUCTION_PER_MIN;
     const otEarnings = totalOtMin * OT_PAY_PER_MIN;
 
-    const grossSalary = baseSalary + otEarnings + commission + holidayBonus + perfectBonus;
-    const netSalary = Math.max(0, grossSalary - lateDeduction);
+    const totalIncome = baseSalary + otEarnings + commission + productCommission + holidayBonus + manualHolidayPay + perfectBonus;
+    const totalDeduction = lateDeduction + socialSecurity + absentDeduction;
+    const netSalary = Math.max(0, totalIncome - totalDeduction);
 
     results.push({
       userId: user.id,
@@ -78,6 +90,7 @@ async function calcMonthlyPayroll(year, month) {
       leaveCount,
       holidayDaysWorked,
       holidayBonus,
+      manualHolidayPay,
       lateCount,
       totalLateMin,
       totalOtMin,
@@ -85,8 +98,12 @@ async function calcMonthlyPayroll(year, month) {
       otEarnings,
       salesAmount,
       commission,
+      productCommission,
+      socialSecurity,
+      absentDeduction,
       perfectBonus,
-      grossSalary,
+      totalIncome,
+      totalDeduction,
       netSalary,
     });
   }
