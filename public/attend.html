@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ลงเวลางาน</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: #f0f4f8; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .card {
+      background: white; border-radius: 20px; padding: 28px 24px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 4px; }
+    .sub { color: #64748b; font-size: 0.85rem; margin-bottom: 22px; }
+    .step {
+      background: #f8fafc; border: 1.5px solid #e2e8f0;
+      border-radius: 14px; padding: 16px; margin-bottom: 14px;
+    }
+    .step-label { font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
+    .dot.ok { background: #22c55e; }
+    .dot.err { background: #ef4444; }
+    .dot.spin { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .photo-btn {
+      display: block; width: 100%; background: #3b82f6; color: white;
+      border: none; border-radius: 12px; padding: 13px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+    }
+    .photo-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    #photo-input { display: none; }
+    #preview { width: 100%; border-radius: 10px; margin-top: 12px; display: none; max-height: 200px; object-fit: cover; }
+    .submit {
+      display: block; width: 100%; padding: 16px;
+      font-size: 1.1rem; font-weight: 700; border: none;
+      border-radius: 14px; cursor: pointer; margin-top: 8px;
+    }
+    .submit:not(:disabled) { background: #16a34a; color: white; }
+    .submit:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+    .result {
+      margin-top: 16px; padding: 14px; border-radius: 12px;
+      font-weight: 600; text-align: center; display: none;
+    }
+    .result.ok { background: #dcfce7; color: #16a34a; display: block; }
+    .result.err { background: #fee2e2; color: #dc2626; display: block; }
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); align-items: center; justify-content: center;
+    }
+    .overlay.show { display: flex; }
+    .spinner { background: white; border-radius: 16px; padding: 24px 32px; font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div id="expired" style="display:none; text-align:center">
+    <h1>⏱️ ลิงก์หมดอายุ</h1>
+    <p class="sub" style="margin-top:8px">กลับไปกดปุ่มลงเวลาใน Line ใหม่อีกครั้ง</p>
+  </div>
+
+  <div id="main">
+    <h1 id="title">ลงเวลางาน</h1>
+    <p class="sub">ลิงก์นี้ใช้ได้ครั้งเดียว หมดอายุใน 10 นาที</p>
+
+    <div class="step">
+      <div class="step-label">📍 ขั้นตอนที่ 1 — GPS</div>
+      <div class="status">
+        <div class="dot spin" id="gps-dot"></div>
+        <span id="gps-txt">กำลังตรวจสอบตำแหน่ง...</span>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-label">📸 ขั้นตอนที่ 2 — ถ่ายรูปกล้องหน้า</div>
+      <input type="file" id="photo-input" accept="image/*" capture="user">
+      <button class="photo-btn" id="photo-btn">📷 ถ่ายรูป Selfie</button>
+      <img id="preview" alt="รูปถ่าย">
+    </div>
+
+    <button class="submit" id="submit-btn" disabled>✅ ยืนยันลงเวลา</button>
+    <div class="result" id="result"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="spinner">⏳ กำลังบันทึก...</div>
+</div>
+
+<script>
+  let lat = null, lng = null, photo = null;
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  const action = params.get('action') || 'checkin';
+
+  document.getElementById('title').textContent =
+    action === 'checkin' ? '🟢 ลงเวลาเข้างาน' : '🔴 ลงเวลาออกงาน';
+
+  // GPS
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      lat = pos.coords.latitude; lng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+      document.getElementById('gps-dot').className = 'dot ok';
+      document.getElementById('gps-txt').textContent = `✅ รับตำแหน่งแล้ว (±${acc} ม.)`;
+      checkReady();
+    },
+    () => {
+      document.getElementById('gps-dot').className = 'dot err';
+      document.getElementById('gps-txt').textContent = '❌ เปิด GPS แล้วรีโหลดหน้านี้';
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+
+  // Photo
+  document.getElementById('photo-btn').onclick = () => document.getElementById('photo-input').click();
+  document.getElementById('photo-input').onchange = function () {
+    const file = this.files[0]; if (!file) return;
+    const r = new FileReader();
+    r.onload = e => {
+      photo = e.target.result;
+      document.getElementById('preview').src = photo;
+      document.getElementById('preview').style.display = 'block';
+      document.getElementById('photo-btn').textContent = '🔄 ถ่ายใหม่';
+      checkReady();
+    };
+    r.readAsDataURL(file);
+  };
+
+  function checkReady() {
+    document.getElementById('submit-btn').disabled = !(lat && lng && photo);
+  }
+
+  // Submit
+  document.getElementById('submit-btn').onclick = async () => {
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('overlay').classList.add('show');
+    try {
+      const res = await fetch('/attend/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, lat, lng, photo, action }),
+      });
+      const data = await res.json();
+      document.getElementById('overlay').classList.remove('show');
+      if (data.error) {
+        if (data.error === 'TOKEN_EXPIRED') {
+          document.getElementById('main').style.display = 'none';
+          document.getElementById('expired').style.display = 'block';
+        } else {
+          showResult(data.error, false);
+          document.getElementById('submit-btn').disabled = false;
+        }
+      } else {
+        showResult(data.message, true);
+      }
+    } catch {
+      document.getElementById('overlay').classList.remove('show');
+      showResult('เกิดข้อผิดพลาด กรุณาลองใหม่', false);
+      document.getElementById('submit-btn').disabled = false;
+    }
+  };
+
+  function showResult(msg, ok) {
+    const el = document.getElementById('result');
+    el.textContent = msg; el.className = 'result ' + (ok ? 'ok' : 'err');
+  }
+</script>
+</body>
+</html>

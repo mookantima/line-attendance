@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>ลงเวลางาน</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 20px;
+      padding: 28px 24px;
+      width: 100%; max-width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    }
+    h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 6px; }
+    .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }
+
+    .step {
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+    .step-label { font-size: 0.78rem; font-weight: 600; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .status { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; }
+    .dot.ok { background: #22c55e; }
+    .dot.err { background: #ef4444; }
+    .dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .photo-btn {
+      display: block; width: 100%;
+      background: #3b82f6; color: white;
+      border: none; border-radius: 12px;
+      padding: 13px; font-size: 1rem; font-weight: 600;
+      cursor: pointer; text-align: center;
+      transition: background 0.2s;
+    }
+    .photo-btn:hover { background: #2563eb; }
+    .photo-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+    #photo-preview {
+      width: 100%; border-radius: 10px; margin-top: 12px;
+      display: none; object-fit: cover; max-height: 200px;
+    }
+    #photo-input { display: none; }
+
+    .submit-btn {
+      display: block; width: 100%;
+      padding: 16px; font-size: 1.1rem; font-weight: 700;
+      border: none; border-radius: 14px;
+      cursor: pointer; margin-top: 8px;
+      transition: all 0.2s;
+    }
+    .submit-btn:not(:disabled) { background: #16a34a; color: white; }
+    .submit-btn:not(:disabled):hover { background: #15803d; }
+    .submit-btn:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
+
+    .result {
+      margin-top: 16px; padding: 14px;
+      border-radius: 12px; font-weight: 600;
+      text-align: center; font-size: 1rem;
+      display: none;
+    }
+    .result.ok { background: #dcfce7; color: #16a34a; display: block; }
+    .result.err { background: #fee2e2; color: #dc2626; display: block; }
+
+    .loading-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); align-items: center; justify-content: center;
+    }
+    .loading-overlay.show { display: flex; }
+    .spinner {
+      background: white; border-radius: 16px; padding: 24px 32px;
+      font-weight: 600; font-size: 1rem; color: #1e293b;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div id="init-screen">
+    <h1>⏳ กำลังโหลด...</h1>
+    <p class="subtitle">กรุณารอสักครู่</p>
+  </div>
+
+  <div id="main-screen" style="display:none">
+    <h1 id="action-title">ลงเวลางาน</h1>
+    <p class="subtitle" id="employee-name"></p>
+
+    <!-- GPS step -->
+    <div class="step">
+      <div class="step-label">📍 ขั้นตอนที่ 1 — ตำแหน่ง GPS</div>
+      <div class="status">
+        <div class="dot loading" id="gps-dot"></div>
+        <span id="gps-text">กำลังตรวจสอบตำแหน่ง...</span>
+      </div>
+    </div>
+
+    <!-- Photo step -->
+    <div class="step">
+      <div class="step-label">📸 ขั้นตอนที่ 2 — ถ่ายรูปด้วยกล้องหน้า</div>
+      <input type="file" id="photo-input" accept="image/*" capture="user">
+      <button class="photo-btn" id="photo-btn" onclick="document.getElementById('photo-input').click()">
+        📷 ถ่ายรูป Selfie
+      </button>
+      <img id="photo-preview" alt="รูปถ่าย">
+    </div>
+
+    <button class="submit-btn" id="submit-btn" disabled>✅ ยืนยันลงเวลา</button>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div id="error-screen" style="display:none">
+    <h1>❌ เกิดข้อผิดพลาด</h1>
+    <p class="subtitle" id="error-msg"></p>
+  </div>
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner">⏳ กำลังบันทึก...</div>
+</div>
+
+<script>
+  const LIFF_ID = '__LIFF_ID__'; // จะถูกแทนที่โดย server
+
+  let lat = null, lng = null, photoBase64 = null;
+  let userId = null, action = null;
+
+  async function init() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+
+      if (!liff.isLoggedIn()) {
+        liff.login({ redirectUri: window.location.href });
+        return;
+      }
+
+      const profile = await liff.getProfile();
+      userId = profile.userId;
+
+      const params = new URLSearchParams(window.location.search);
+      action = params.get('action') || 'checkin';
+
+      document.getElementById('action-title').textContent =
+        action === 'checkin' ? '🟢 ลงเวลาเข้างาน' : '🔴 ลงเวลาออกงาน';
+      document.getElementById('employee-name').textContent = profile.displayName;
+
+      document.getElementById('init-screen').style.display = 'none';
+      document.getElementById('main-screen').style.display = 'block';
+
+      getGPS();
+      document.getElementById('photo-input').addEventListener('change', onPhotoSelected);
+      document.getElementById('submit-btn').addEventListener('click', submit);
+
+    } catch (e) {
+      showError('ไม่สามารถโหลดได้: ' + e.message);
+    }
+  }
+
+  function getGPS() {
+    if (!navigator.geolocation) {
+      setGPSError('อุปกรณ์ไม่รองรับ GPS');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+        const acc = Math.round(pos.coords.accuracy);
+        setGPSOk(`ตำแหน่งที่ได้รับ (ความแม่นยำ ±${acc} เมตร)`);
+        checkReady();
+      },
+      err => {
+        setGPSError('ไม่สามารถรับตำแหน่งได้ — กรุณาเปิด GPS แล้วลองใหม่');
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  function setGPSOk(msg) {
+    document.getElementById('gps-dot').className = 'dot ok';
+    document.getElementById('gps-text').textContent = '✅ ' + msg;
+  }
+  function setGPSError(msg) {
+    document.getElementById('gps-dot').className = 'dot err';
+    document.getElementById('gps-text').textContent = '❌ ' + msg;
+  }
+
+  function onPhotoSelected(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      photoBase64 = ev.target.result;
+      const preview = document.getElementById('photo-preview');
+      preview.src = photoBase64;
+      preview.style.display = 'block';
+      document.getElementById('photo-btn').textContent = '🔄 ถ่ายใหม่';
+      checkReady();
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function checkReady() {
+    document.getElementById('submit-btn').disabled = !(lat && lng && photoBase64);
+  }
+
+  async function submit() {
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('loading-overlay').classList.add('show');
+
+    try {
+      const res = await fetch(`/liff/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, lat, lng, photo: photoBase64 }),
+      });
+      const data = await res.json();
+
+      document.getElementById('loading-overlay').classList.remove('show');
+
+      if (data.error) {
+        showResult(data.error, false);
+        document.getElementById('submit-btn').disabled = false;
+      } else {
+        showResult(data.message, true);
+        setTimeout(() => {
+          if (liff.isInClient()) liff.closeWindow();
+        }, 2500);
+      }
+    } catch (e) {
+      document.getElementById('loading-overlay').classList.remove('show');
+      showResult('เกิดข้อผิดพลาด กรุณาลองใหม่', false);
+      document.getElementById('submit-btn').disabled = false;
+    }
+  }
+
+  function showResult(msg, ok) {
+    const el = document.getElementById('result');
+    el.textContent = msg;
+    el.className = 'result ' + (ok ? 'ok' : 'err');
+  }
+
+  function showError(msg) {
+    document.getElementById('init-screen').style.display = 'none';
+    document.getElementById('error-screen').style.display = 'block';
+    document.getElementById('error-msg').textContent = msg;
+  }
+
+  init();
+</script>
+</body>
+</html>
