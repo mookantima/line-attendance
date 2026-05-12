@@ -44,22 +44,25 @@ if (fs.existsSync(dashboardDist)) {
 }
 
 // Admin tool: unlink LINE for testing
-// Usage: /admin/unlink?pw=YOUR_PASSWORD&id=EMPLOYEE_ID
 app.get('/admin/unlink', async (req, res) => {
   const { query } = require('./config/database');
   if (req.query.pw !== process.env.DASHBOARD_PASSWORD) {
     return res.status(401).send('Unauthorized');
   }
-  if (!req.query.id) {
-    const result = await query('SELECT id, name, surname, line_user_id FROM users WHERE is_active = true ORDER BY name');
-    const rows = result.rows.map(u =>
-      `<tr><td>${u.id}</td><td>${u.name} ${u.surname || ''}</td><td>${u.line_user_id ? '✅ เชื่อมแล้ว' : '—'}</td>` +
-      `<td>${u.line_user_id ? `<a href="/admin/unlink?pw=${req.query.pw}&id=${u.id}">ยกเลิก LINE</a>` : ''}</td></tr>`
-    ).join('');
-    return res.send(`<table border=1 cellpadding=8>${rows}</table>`);
+  if (req.query.id) {
+    await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [req.query.id]);
   }
-  await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [req.query.id]);
-  res.send('✅ ยกเลิก LINE เรียบร้อย — <a href="javascript:history.back()">กลับ</a>');
+  const result = await query('SELECT id, name, surname, line_user_id FROM users WHERE is_active = true ORDER BY name');
+  const rows = result.rows.map(u =>
+    `<tr><td>${u.id}</td><td>${u.name} ${u.surname || ''}</td>` +
+    `<td style="color:${u.line_user_id ? 'green' : 'gray'}">${u.line_user_id ? '✅ เชื่อมแล้ว' : '❌ ไม่ได้เชื่อม'}</td>` +
+    `<td>${u.line_user_id ? `<a href="/admin/unlink?pw=${req.query.pw}&id=${u.id}" onclick="return confirm('ยกเลิก LINE?')">ยกเลิก LINE</a>` : ''}</td></tr>`
+  ).join('');
+  res.send(`<html><body style="font-family:sans-serif;padding:20px">
+    <h2>จัดการ LINE Account</h2>
+    <table border=1 cellpadding=8 cellspacing=0>${rows}</table>
+    <p style="color:gray;margin-top:12px">หลังกดยกเลิก → หน้านี้จะ reload แสดงสถานะล่าสุด</p>
+  </body></html>`);
 });
 
 // Root → redirect to dashboard
