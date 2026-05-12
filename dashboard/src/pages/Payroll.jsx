@@ -13,6 +13,8 @@ export default function Payroll() {
   const [loading, setLoading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
   const [manualEdit, setManualEdit] = useState(null);
+  const [salaryEdit, setSalaryEdit] = useState(null);
+  const [salaryMsg, setSalaryMsg] = useState(null);
   const fileRef = useRef();
   const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 
@@ -44,6 +46,22 @@ export default function Payroll() {
       setUploadResult({ error: err.message });
     }
     e.target.value = '';
+  }
+
+  async function saveSalary() {
+    if (!salaryEdit) return;
+    setSalaryMsg(null);
+    try {
+      await api.updateSalary(salaryEdit.id, {
+        salary_type: salaryEdit.salary_type,
+        salary_amount: parseFloat(salaryEdit.salary_amount),
+      });
+      setSalaryMsg({ ok: true, text: `บันทึกเงินเดือน ${salaryEdit.name} สำเร็จ` });
+      setSalaryEdit(null);
+      load();
+    } catch (e) {
+      setSalaryMsg({ ok: false, text: e.message });
+    }
   }
 
   async function saveManual() {
@@ -104,6 +122,81 @@ export default function Payroll() {
       <div className="bg-green-600 text-white rounded-xl p-4 flex justify-between items-center">
         <span className="font-semibold text-lg">💰 เงินเดือนสุทธิรวมทุกคน</span>
         <span className="text-2xl font-bold">฿{fmt(totals.net)}</span>
+      </div>
+
+      {/* Salary settings */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <h3 className="font-semibold text-slate-700 mb-4">⚙️ ตั้งค่าเงินเดือนพนักงาน</h3>
+        {salaryMsg && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${salaryMsg.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+            {salaryMsg.ok ? '✅' : '❌'} {salaryMsg.text}
+          </div>
+        )}
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              {['ชื่อ', 'ประเภท', 'อัตราเงินเดือน (฿)', 'จัดการ'].map(h => (
+                <th key={h} className="px-3 py-2 text-left font-medium">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {employees.filter(e => e.is_active).map(emp => {
+              const isEditing = salaryEdit?.id === emp.id;
+              return (
+                <tr key={emp.id} className="hover:bg-slate-50">
+                  <td className="px-3 py-2 font-medium">{emp.name}</td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <select value={salaryEdit.salary_type}
+                        onChange={e => setSalaryEdit(v => ({ ...v, salary_type: e.target.value }))}
+                        className="border border-slate-300 rounded px-2 py-1 text-sm">
+                        <option value="monthly">รายเดือน</option>
+                        <option value="daily">รายวัน</option>
+                      </select>
+                    ) : (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${emp.salary_type === 'daily' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                        {emp.salary_type === 'daily' ? 'รายวัน' : 'รายเดือน'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <input type="number" value={salaryEdit.salary_amount}
+                          onChange={e => setSalaryEdit(v => ({ ...v, salary_amount: e.target.value }))}
+                          className="border border-slate-300 rounded px-2 py-1 w-32 text-sm" />
+                        <span className="text-slate-400 text-xs">
+                          {salaryEdit.salary_type === 'daily' ? '฿/วัน' : '฿/เดือน'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-slate-700">
+                        ฿{fmt(emp.salary_amount)}
+                        <span className="text-slate-400 text-xs font-normal ml-1">
+                          {emp.salary_type === 'daily' ? '/วัน' : '/เดือน'}
+                        </span>
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {isEditing ? (
+                      <div className="flex gap-2">
+                        <button onClick={saveSalary}
+                          className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">บันทึก</button>
+                        <button onClick={() => setSalaryEdit(null)}
+                          className="text-xs bg-slate-200 text-slate-600 px-3 py-1 rounded">ยกเลิก</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setSalaryEdit({ id: emp.id, name: emp.name, salary_type: emp.salary_type || 'monthly', salary_amount: emp.salary_amount || 0 }); setSalaryMsg(null); }}
+                        className="text-xs text-blue-600 underline hover:text-blue-800">แก้ไข</button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Commission section */}
