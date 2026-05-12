@@ -36,22 +36,9 @@ function Login({ onLogin }) {
         style={{ background: 'var(--brand-cream)' }}>
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <svg width="56" height="56" viewBox="0 0 48 48" fill="none" className="mb-3">
-            <ellipse cx="24" cy="24" rx="22" ry="22"
-              fill="none" stroke="#6b7c52" strokeWidth="1.5"/>
-            <path d="M24 8 C14 16, 12 28, 24 38 C36 28, 34 16, 24 8Z"
-              fill="#6b7c52" opacity="0.2"/>
-            <path d="M24 8 C14 16, 12 28, 24 38 C36 28, 34 16, 24 8Z"
-              fill="none" stroke="#4e5e3a" strokeWidth="1.5"/>
-            <path d="M24 8 L24 38" stroke="#4e5e3a" strokeWidth="1" strokeDasharray="2 2"/>
-            <path d="M16 22 Q24 18 32 22" stroke="#4e5e3a" strokeWidth="1" fill="none"/>
-            <path d="M15 28 Q24 24 33 28" stroke="#4e5e3a" strokeWidth="1" fill="none"/>
-          </svg>
-          <h1 className="font-light tracking-[0.25em] text-xl"
-            style={{ color: 'var(--brand-dark)', letterSpacing: '0.3em' }}>OLIVIA</h1>
-          <p className="text-xs tracking-widest mt-0.5"
-            style={{ color: 'var(--brand-sage)', letterSpacing: '0.4em' }}>NAILS SPA</p>
-          <div className="w-12 mt-3" style={{ height: 1, background: 'var(--brand-beige)' }}/>
+          <img src="/dashboard/logo.png" alt="Olivia Nails Spa"
+            style={{ width: 140, objectFit: 'contain', marginBottom: 16 }} />
+          <div className="w-12" style={{ height: 1, background: 'var(--brand-beige)' }}/>
           <p className="mt-3 text-xs" style={{ color: 'var(--brand-light)' }}>Admin Dashboard</p>
         </div>
 

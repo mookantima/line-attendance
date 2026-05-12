@@ -15,29 +15,13 @@ export default function Sidebar({ onLogout }) {
       className="flex flex-col shrink-0 min-h-screen">
 
       {/* Logo */}
-      <div className="flex flex-col items-center px-6 pt-8 pb-6"
+      <div className="flex flex-col items-center px-6 pt-7 pb-5"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        {/* Leaf emblem */}
-        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" className="mb-3">
-          <ellipse cx="24" cy="24" rx="22" ry="22"
-            fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="1"/>
-          <path d="M24 8 C14 16, 12 28, 24 38 C36 28, 34 16, 24 8Z"
-            fill="none" stroke="#c8d4b0" strokeWidth="1.5" strokeLinejoin="round"/>
-          <path d="M24 8 L24 38" stroke="#c8d4b0" strokeWidth="1" strokeDasharray="2 2"/>
-          <path d="M16 22 Q24 18 32 22" stroke="#c8d4b0" strokeWidth="1" fill="none"/>
-          <path d="M15 28 Q24 24 33 28" stroke="#c8d4b0" strokeWidth="1" fill="none"/>
-        </svg>
-        <p className="font-light tracking-[0.2em] text-xs uppercase"
-          style={{ color: '#c8d4b0', letterSpacing: '0.25em' }}>Olivia</p>
-        <p className="text-xs tracking-widest mt-0.5"
-          style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, letterSpacing: '0.3em' }}>
-          NAILS SPA
+        <img src="/dashboard/logo.png" alt="Olivia Nails Spa"
+          style={{ width: 120, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.92 }} />
+        <p className="mt-3 text-xs" style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, letterSpacing: '0.15em' }}>
+          Admin Dashboard
         </p>
-        <div className="mt-3 text-center">
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>
-            Admin Dashboard
-          </p>
-        </div>
       </div>
 
       {/* Nav */}
