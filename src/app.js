@@ -58,8 +58,22 @@ const { startEndOfDayCron } = require('./services/endOfDayNotify');
 startEndOfDayCron();
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+
+async function runMigrations() {
+  const { query } = require('./config/database');
+  const migrations = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS id_card_url TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS bank_book_url TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS start_date DATE`,
+  ];
+  for (const sql of migrations) {
+    try { await query(sql); } catch (e) { console.error('Migration error:', e.message); }
+  }
+  console.log('✅ Migrations checked');
+}
+
+runMigrations().then(() => app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`📍 Webhook: https://YOUR_DOMAIN/webhook`);
   console.log(`📱 LIFF page: https://YOUR_DOMAIN/liff`);
-});
+}));
