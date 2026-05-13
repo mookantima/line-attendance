@@ -26,7 +26,12 @@ const lineConfig = {
 router.post('/', line.middleware(lineConfig), async (req, res) => {
   res.sendStatus(200);
   const events = req.body.events || [];
-  await Promise.all(events.map(event => handleEvent(event).catch(console.error)));
+  await Promise.all(events.map(event => handleEvent(event).catch(async (err) => {
+    console.error(err);
+    if (event.replyToken) {
+      await reply(event.replyToken, text(`⚠️ เกิดข้อผิดพลาด: ${err.message}`)).catch(() => {});
+    }
+  })));
 });
 
 async function handleEvent(event) {
