@@ -50,18 +50,26 @@ app.get('/admin/unlink', async (req, res) => {
     return res.status(401).send('Unauthorized');
   }
   if (req.query.id) {
-    await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [req.query.id]);
+    await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [parseInt(req.query.id)]);
   }
   const result = await query('SELECT id, name, surname, line_user_id FROM users WHERE is_active = true ORDER BY name');
+  const pw = req.query.pw;
   const rows = result.rows.map(u =>
     `<tr><td>${u.id}</td><td>${u.name} ${u.surname || ''}</td>` +
     `<td style="color:${u.line_user_id ? 'green' : 'gray'}">${u.line_user_id ? '✅ เชื่อมแล้ว' : '❌ ไม่ได้เชื่อม'}</td>` +
-    `<td>${u.line_user_id ? `<a href="/admin/unlink?pw=${req.query.pw}&id=${u.id}" onclick="return confirm('ยกเลิก LINE?')">ยกเลิก LINE</a>` : ''}</td></tr>`
+    `<td>${u.line_user_id
+      ? `<form method="GET" action="/admin/unlink" style="display:inline">
+           <input type="hidden" name="pw" value="${pw}">
+           <input type="hidden" name="id" value="${u.id}">
+           <button type="submit" style="color:red;cursor:pointer">ยกเลิก LINE</button>
+         </form>`
+      : '<span style="color:gray">—</span>'
+    }</td></tr>`
   ).join('');
   res.send(`<html><body style="font-family:sans-serif;padding:20px">
     <h2>จัดการ LINE Account</h2>
     <table border=1 cellpadding=8 cellspacing=0>${rows}</table>
-    <p style="color:gray;margin-top:12px">หลังกดยกเลิก → หน้านี้จะ reload แสดงสถานะล่าสุด</p>
+    <p style="color:gray;margin-top:12px">กดปุ่มแดง → หน้า reload → ดูสถานะล่าสุด</p>
   </body></html>`);
 });
 
