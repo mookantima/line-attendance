@@ -44,32 +44,34 @@ if (fs.existsSync(dashboardDist)) {
 }
 
 // Admin tool: unlink LINE for testing
+app.post('/admin/unlink', express.urlencoded({ extended: true }), async (req, res) => {
+  const { query } = require('./config/database');
+  if (req.body.pw !== process.env.DASHBOARD_PASSWORD) return res.status(401).send('Unauthorized');
+  const result = await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [parseInt(req.body.id)]);
+  res.redirect(`/admin/unlink?pw=${encodeURIComponent(req.body.pw)}&msg=unlinked+${result.rowCount}+rows`);
+});
+
 app.get('/admin/unlink', async (req, res) => {
   const { query } = require('./config/database');
-  if (req.query.pw !== process.env.DASHBOARD_PASSWORD) {
-    return res.status(401).send('Unauthorized');
-  }
-  if (req.query.id) {
-    await query('UPDATE users SET line_user_id = NULL WHERE id = $1', [parseInt(req.query.id)]);
-  }
+  if (req.query.pw !== process.env.DASHBOARD_PASSWORD) return res.status(401).send('Unauthorized');
   const result = await query('SELECT id, name, surname, line_user_id FROM users WHERE is_active = true ORDER BY name');
   const pw = req.query.pw;
+  const msg = req.query.msg ? `<p style="color:green;font-weight:bold">✅ ${req.query.msg}</p>` : '';
   const rows = result.rows.map(u =>
     `<tr><td>${u.id}</td><td>${u.name} ${u.surname || ''}</td>` +
     `<td style="color:${u.line_user_id ? 'green' : 'gray'}">${u.line_user_id ? '✅ เชื่อมแล้ว' : '❌ ไม่ได้เชื่อม'}</td>` +
     `<td>${u.line_user_id
-      ? `<form method="GET" action="/admin/unlink" style="display:inline">
+      ? `<form method="POST" action="/admin/unlink" style="display:inline">
            <input type="hidden" name="pw" value="${pw}">
            <input type="hidden" name="id" value="${u.id}">
-           <button type="submit" style="color:red;cursor:pointer">ยกเลิก LINE</button>
+           <button type="submit" style="color:red;cursor:pointer;border:none;background:none;font-size:14px">ยกเลิก LINE</button>
          </form>`
       : '<span style="color:gray">—</span>'
     }</td></tr>`
   ).join('');
   res.send(`<html><body style="font-family:sans-serif;padding:20px">
-    <h2>จัดการ LINE Account</h2>
+    <h2>จัดการ LINE Account</h2>${msg}
     <table border=1 cellpadding=8 cellspacing=0>${rows}</table>
-    <p style="color:gray;margin-top:12px">กดปุ่มแดง → หน้า reload → ดูสถานะล่าสุด</p>
   </body></html>`);
 });
 
